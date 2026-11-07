@@ -151,3 +151,14 @@ def test_index_served(make_client):
     r = client.get("/")
     assert r.status_code == 200 and "/compute" in r.text
     assert client.get("/static/api.js").status_code == 200
+
+
+def test_ui_files_are_revalidated(make_client):
+    """Browsers check for a newer copy before reusing the UI, so an update never mixes old JS with new HTML."""
+    client, _ = make_client(lambda _r: httpx.Response(200))
+    assert client.get("/").headers["cache-control"] == "no-cache"
+    first = client.get("/static/app.js")
+    assert first.status_code == 200 and first.headers["cache-control"] == "no-cache"
+    again = client.get("/static/app.js", headers={"if-none-match": first.headers["etag"]})
+    assert again.status_code == 304 and again.headers["cache-control"] == "no-cache"
+    assert "cache-control" not in client.get("/api/shell").headers

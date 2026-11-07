@@ -171,6 +171,15 @@ def test_admin_page_404s_until_installed(client, tmp_path, monkeypatch):
     assert client.get("/admin/static/../../etc/passwd").status_code == 404
 
 
+def test_admin_files_are_revalidated(client, tmp_path, monkeypatch):
+    """The admin page and its files tell browsers to check for a newer copy before reusing them."""
+    monkeypatch.setattr("compute.server.routes.ADMIN_DIR", tmp_path)
+    (tmp_path / "admin.html").write_text("<h1>admin</h1>")
+    (tmp_path / "admin.css").write_text("body {}")
+    assert client.get("/admin").headers["cache-control"] == "no-cache"
+    assert client.get("/admin/static/admin.css").headers["cache-control"] == "no-cache"
+
+
 def test_leaderboard_all_vs_week(client):
     sv = services(client)
     old_id = client.get("/auth/me", headers=bearer(register(client, "old@lan.test", "Oldtimer"))).json()["id"]
