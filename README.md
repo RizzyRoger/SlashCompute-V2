@@ -29,4 +29,4 @@ compute server serve --admin-email "$COMPUTE_ADMIN_EMAIL"   # host a pool: you b
 compute node start --url http://<server>:8765 --memory-percent 50 --models-dir ~/models  # contribute
 ```
 
-Build: `scripts/build_mac.sh` → `dist/compute-mac.dmg`; on Windows `scripts/build_windows.ps1` → `dist/compute-windows.zip`.
+Build: `scripts/build_mac.sh` → `dist/compute-mac.dmg`; on Windows `scripts/build_windows.ps1` → `dist/compute-windows.zip`. The Mac app carries uv's portable Python and runs on it instead of PyInstaller: macOS never gives an ad-hoc signed PyInstaller app Local Network access, but it does give it to the bundled Python, which System Settings lists as python3.13.

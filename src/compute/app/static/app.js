@@ -95,7 +95,8 @@ const notAdvertisedWarning = (srv) => [
 // Shown on every computer whose OS blocks the app from the LAN: nothing on the network can work until it's fixed.
 const blockedWarning = () => IS_MAC
   ? "macOS is blocking /compute from your local network, so it can't find or reach any other computer. "
-    + 'Open System Settings > Privacy & Security > Local Network, turn compute on, then quit and reopen /compute.'
+    + 'Open System Settings > Privacy & Security > Local Network, turn on python3.13 (/compute runs on it), then quit and reopen /compute. '
+    + "If python3.13 isn't listed, install the latest /compute: older builds can't ask macOS for this."
   : "Windows is blocking /compute from your local network. Allow compute through Windows Defender Firewall on Private networks, set this network to Private, then reopen /compute."
 
 const renderServer = (status) => {

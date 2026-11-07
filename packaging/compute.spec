@@ -2,6 +2,8 @@
 # PyInstaller spec for /compute (onedir, windowed). Build from the repo root:
 #   uv run pyinstaller --noconfirm --clean packaging/compute.spec
 # PyInstaller cannot cross-compile: build the Mac app on a Mac and the Windows app on Windows.
+# scripts/build_mac.sh no longer uses this spec: an ad-hoc signed PyInstaller .app never gets
+# macOS Local Network access (see that script). The Windows build still does.
 import sys
 from pathlib import Path
 
