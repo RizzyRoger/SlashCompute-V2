@@ -25,6 +25,7 @@ from compute.common.discovery import LanBrowser, LanServer, choose_pool, lan_ip
 SERVER_START_WAIT_S = 20.0
 DISCOVER_WAIT_S = 5.0
 DISCOVER_POLL_S = 0.2
+ADVERTISE_GRACE_S = 10.0   # how long a new server gets to show up on mDNS before the app warns
 NODE_EARLY_EXIT_WAIT_S = 1.5
 LOG_TAIL_CHARS = 1500
 CREATE_NEW_PROCESS_GROUP = 0x00000200
@@ -315,6 +316,20 @@ class Controller:
             time.sleep(0.2)
         self.last_error = "The main server is still starting; check logs/server.log if it never answers."
 
+    def advertised(self, lan: list[LanServer]) -> Optional[bool]:
+        """Whether this computer's main server shows up in our own mDNS browse. If it doesn't, nobody else
+        can find it either (local network access off, a firewall, or a network that drops multicast).
+        None while it isn't running or has only just started."""
+        try:
+            age = time.time() - self.server_pid_path.stat().st_mtime
+        except OSError:
+            return None
+        if self.server_pid() is None:
+            return None
+        if any(s.url == self.lan_server_url() for s in lan):
+            return True
+        return False if age >= ADVERTISE_GRACE_S else None
+
     def stop_server(self) -> dict:
         pid = self.server_pid()
         if pid is not None:
@@ -474,15 +489,17 @@ class Controller:
         health = self.health(settings.server_url)
         if health is None and local_running:
             health = self.health(self.local_server_url())
+        lan = self.lan_servers()
         return {
             "server": {
                 "url": settings.server_url,
                 "reachable": health is not None,
                 "local_running": local_running,
                 "lan_url": self.lan_server_url() if local_running else "",
+                "advertised": self.advertised(lan),
                 "health": health or {},
                 "auto_join": settings.auto_join,
-                "lan": [{"url": s.url, "name": s.name} for s in self.lan_servers()],
+                "lan": [{"url": s.url, "name": s.name} for s in lan],
             },
             "node": self.node_status(),
             "settings": asdict(settings),

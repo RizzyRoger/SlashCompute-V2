@@ -74,3 +74,8 @@ Plan: ~/.claude/plans/okay-on-the-main-atomic-flamingo.md · Builds on `1c232c6`
 
 - Everyone on the network needs this version for auto-join; older apps can still use the button (same service type), and older servers (no `started`) are still found, sorted last.
 - zeroconf logs a "No route to host" warning for interfaces it can't send on (VPN tunnel, hotspot); harmless.
+
+# Host warning when its server isn't visible
+
+- [x] `status().server.advertised` (own server in own mDNS browse, 10 s grace) and a red Connect-tab warning with the Mac/Windows fix and the address to type
+- [x] Tests: 410 passed; browser check with a scratch server, mDNS off (warning shows) then on (warning clears)
