@@ -44,7 +44,6 @@ ROOT = Path("/work/proj")
     ("git stash", NORMAL),
     ("git checkout -b feature", NORMAL),
     ("sed -i '' 's/a/b/' f.txt", NORMAL),
-    ("FOO=1 node script.js", NORMAL),
     ("cargo build", NORMAL),
     # powerful
     ("rm -rf build", POWERFUL),
@@ -84,6 +83,35 @@ ROOT = Path("/work/proj")
     ("powershell -Command Get-Item", POWERFUL),
     ("del notes.txt", POWERFUL),
     ("echo 'unbalanced", POWERFUL),
+    # options that make a read-only tool run another program
+    ("rg --pre bash TODO", POWERFUL),
+    ("rg --pre=./x.sh TODO", POWERFUL),
+    ("rg --hostname-bin ./x.sh TODO", POWERFUL),
+    ("fd -x sh", POWERFUL),
+    ("fd --exec-batch sh", POWERFUL),
+    ("sort --compress-program=sh notes.txt", POWERFUL),
+    ('git -c core.fsmonitor="touch pwned" status', POWERFUL),
+    ("git --config-env=core.pager=X log", POWERFUL),
+    ("git --exec-path=. status", POWERFUL),
+    ("git grep -Ovim TODO", POWERFUL),
+    ("git fetch --upload-pack=./x.sh origin", POWERFUL),
+    ("git clone https://example.com/r.git", POWERFUL),
+    # environment: prefixes can change what runs; printing it leaks secrets to the pool
+    ("FOO=1 node script.js", POWERFUL),
+    ("GIT_EXTERNAL_DIFF=./x.sh git diff", POWERFUL),
+    ("printenv", POWERFUL),
+    ("printenv AWS_SECRET_ACCESS_KEY", POWERFUL),
+    ("env", POWERFUL),
+    # secrets files
+    ("cat .env", POWERFUL),
+    ("grep KEY config/.env.local", POWERFUL),
+    ("head id_rsa", POWERFUL),
+    # still read-only
+    ("rg TODO src", READ_ONLY),
+    ("fd test", READ_ONLY),
+    ("sort notes.txt", READ_ONLY),
+    ("cat .env.example", READ_ONLY),
+    ("git -C sub log --oneline", READ_ONLY),
 ])
 def test_classify(command: str, level: str):
     risk = classify(command, ROOT)

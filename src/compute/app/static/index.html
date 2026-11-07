@@ -164,8 +164,9 @@
           <legend>Permission mode</legend>
           <label><input type="radio" name="code-mode" value="plan"> Plan: explores read-only, then proposes a plan for you to approve</label>
           <label><input type="radio" name="code-mode" value="manual"> Manual: asks before every file change and every command</label>
-          <label><input type="radio" name="code-mode" value="auto"> Auto: edits and runs commands itself; asks for deletions and powerful commands</label>
+          <label><input type="radio" name="code-mode" value="auto"> Auto: edits files and runs read-only commands itself; asks before other commands (unless allowed below), deletions and powerful commands</label>
         </fieldset>
+        <label><input type="checkbox" id="code-run-commands"> Let Auto also run programs and scripts without asking. Only if you trust the pool: the model's replies come from other people's computers.</label>
         <form id="code-settings-form">
           <label>Model <select name="model" id="code-tab-model"></select></label>
           <label>Budget (PFLOPs, 0 = no cap) <input name="budget_pflops" type="number" min="0" step="any"></label>

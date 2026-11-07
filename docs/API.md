@@ -132,9 +132,9 @@ A Code tab lets a pool model read and edit files in a folder you choose. The too
 | Method | Path | Body | Returns |
 |---|---|---|---|
 | GET | `/api/code/sessions` | – | `{sessions: [meta]}` |
-| POST | `/api/code/sessions` | `{root, model, mode?, budget_pflops?, title?}` | `meta`. `root` must be an existing folder (not `/`, the home folder, or the /compute home). `budget_pflops > 0` opens a server FLOP session (`POST /sessions`) that caps the tab's spending. |
+| POST | `/api/code/sessions` | `{root, model, mode?, budget_pflops?, title?, run_commands?}` | `meta`. `root` must be an existing folder (not `/`, the home folder, or the /compute home). `budget_pflops > 0` opens a server FLOP session (`POST /sessions`) that caps the tab's spending. |
 | GET | `/api/code/sessions/{id}?after=N` | – | snapshot: `{session: meta, entries[seq > N], partial, state, activity, mode, pending, plan, queue, spent_flops, budget_flops, checkpoints}` |
-| PATCH | `/api/code/sessions/{id}` | `{mode?, title?, model?, budget_pflops?}` | `meta`. A mode change applies to the next tool call. |
+| PATCH | `/api/code/sessions/{id}` | `{mode?, title?, model?, budget_pflops?, run_commands?}` | `meta`. A mode change applies to the next tool call. `run_commands` (default false) lets Auto run normal commands without asking. |
 | DELETE | `/api/code/sessions/{id}` | – | `{ok}` (stops the turn, deletes the transcript) |
 | POST | `/api/code/sessions/{id}/messages` | `{text}` | `meta`; starts a turn (409 while one runs) |
 | POST | `/api/code/sessions/{id}/approval` | `{id, approve, note?}` | `{ok}`; answers the pending approval (409 if none or out of date) |
@@ -155,11 +155,11 @@ Entry kinds: `user`, `assistant {text, thinking, flops}`, `tool {tool, target, s
 | `write_file`, `edit_file` | deny | ask (diff shown) | allow (ask for secrets files) |
 | `delete_file` | deny | ask | ask |
 | `run_command`, read-only (`ls`, `cat`, `grep`, `git status/diff/log`...) | allow | ask | allow |
-| `run_command`, normal (`pytest`, `npm test`, `mkdir`, `python x.py`...) | deny | ask | allow |
+| `run_command`, normal (`pytest`, `npm test`, `mkdir`, `python x.py`...) | deny | ask | ask; allow if the tab has `run_commands` on |
 | `run_command`, powerful | deny | ask | ask |
 | `propose_plan` | ends the turn, shows the plan | deny | deny |
 
-Always refused: paths outside the folder (symlinks included) and writes inside `.git`. **Powerful** commands (`code/commands.py`): deleting (`rm`, `del`), `sudo`, permission changes, killing processes, network tools (`curl`, `ssh`, `rsync`...), containers, opening apps or changing system settings, `git push / reset --hard / clean / rebase / checkout -- / branch -D`, installing or publishing packages, `$(...)` and backticks, `eval`/`xargs`, piping into a shell or interpreter, inline code (`python -c`), background jobs (`&`), and any argument that points outside the folder. A command line is split on `&& || ; |` and its most severe part decides. Commands run in the folder with a 2-minute limit, no input, a login-shell `PATH`, and without `COMPUTE_*` variables.
+Always refused: paths outside the folder (symlinks included) and writes inside `.git`. **Powerful** commands (`code/commands.py`): deleting (`rm`, `del`), `sudo`, permission changes, killing processes, network tools (`curl`, `ssh`, `rsync`...), containers, opening apps or changing system settings, `git push / reset --hard / clean / rebase / checkout -- / branch -D`, installing or publishing packages, `$(...)` and backticks, `eval`/`xargs`, piping into a shell or interpreter, inline code (`python -c`), background jobs (`&`), any argument that points outside the folder, `VAR=value` prefixes, `printenv` and bare `env`, arguments naming a secrets file, options that make a read-only tool start a program (`rg --pre`, `fd -x`, `sort --compress-program`, `git -c` / `--config-env` / `--exec-path`, `git grep -O`), and git network commands (`fetch`, `pull`, `clone`, `ls-remote`, `archive`). The model's replies come from pool computers, so Auto only runs normal commands without asking when the tab opts in. A command line is split on `&& || ; |` and its most severe part decides. Commands run in the folder with a 2-minute limit, no input, a login-shell `PATH`, and without `COMPUTE_*` variables.
 
 ### Tool-call protocol
 
