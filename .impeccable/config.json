@@ -11,6 +11,12 @@
         ],
         "createdAt": "2026-11-07T19:52:51.646Z",
         "reason": "user confirmed: UI is intentionally barebones this round; another team owns the visual design"
+      },
+      {
+        "rule": "overused-font",
+        "value": "space grotesk",
+        "createdAt": "2026-11-07T22:30:59.340Z",
+        "reason": "user confirmed: chose to bundle Space Grotesk, the landing page design font (midnight-mac-showcase), for app.css and admin.css on 2026-11-07"
       }
     ]
   }
