@@ -16,11 +16,12 @@ from compute.app.attachments import AttachmentError, extract, max_bytes_for
 from compute.app.code.harness import CodeManager
 from compute.app.code.routes import code_router
 from compute.app.controller import Controller, ControllerError
+from compute.app.folders import FolderError, browse
 from compute.app.resources import static_dir
 
 SHELL_HOST = "127.0.0.1"
 SHELL_PORT = int(os.environ.get("COMPUTE_SHELL_PORT", "8766"))
-SHELL_GENERATION = 8
+SHELL_GENERATION = 9
 # Forming a pipeline (loading weights over RPC) can take minutes before the first token.
 STREAM_TIMEOUT = httpx.Timeout(None, connect=5.0)
 PROXY_TIMEOUT = httpx.Timeout(60.0, connect=5.0)
@@ -193,6 +194,16 @@ def create_shell(controller: Optional[Controller] = None,
         try:
             return extract(name, data)
         except AttachmentError as e:
+            return error(e.status, e.message)
+
+    # ---------------------------------------------------------------- folders
+
+    @app.get("/api/folders")
+    def folders(path: str = "", hidden: bool = False):
+        """The folder picker: one folder's sub-folders on this computer (names only)."""
+        try:
+            return browse(path, hidden)
+        except FolderError as e:
             return error(e.status, e.message)
 
     # ------------------------------------------------------------- code tabs

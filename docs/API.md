@@ -122,6 +122,7 @@ Rules:
 | ANY | `/api/coord/{path}` | proxy to the main server, forwarding the auth header/cookie |
 | POST | `/api/chat` | streaming proxy to `/v1/chat/completions` (SSE passthrough, including `queued` events) |
 | POST | `/api/attach` | multipart `file` → `{kind: "text"\|"image", name, size, text? , data_url?}`. Extraction runs locally; nothing is sent to the pool until the user sends a message. |
+| GET | `/api/folders?path=&hidden=` | Fallback folder picker. In the app window, "Choose folder..." (Code tab project folder, model folders) opens the system dialog (Finder / File Explorer) through `pywebview.api.choose_folder(start)` (`app/main.py`); in a plain browser the UI browses with this endpoint instead: `{path, name, parent, crumbs: [{name, path}], folders: [{name, path}], truncated, places: [{name, path}]}`. Sub-folders only (no files), sorted by name, hidden ones (dot-folders, OS-hidden) only with `hidden=true`, at most 2000. No `path` = the home folder. 400 relative path, 403 no permission, 404 not a folder. |
 
 ---
 
