@@ -166,25 +166,20 @@ class Auth:
     def accept_terms(self, user: User, version: str) -> User:
         if version != terms_version():
             raise AuthError("Those are not the current terms; reload them.", 409)
-        user.terms_version, user.terms_accepted_at = version, time.time()
-        self.db.save(user)
-        return user
+        return self.db.update(User, user.id, terms_version=version, terms_accepted_at=time.time())
 
     def rename(self, user: User, name: Optional[str]) -> User:
         clean = (name or "").strip()[:80]
         if not clean:
             raise AuthError("Name cannot be empty.")
-        user.name = clean
-        self.db.save(user)
-        return user
+        return self.db.update(User, user.id, name=clean)
 
     def set_banned(self, user: User, banned: bool) -> User:
-        user.banned = bool(banned)
-        self.db.save(user)
-        return user
+        return self.db.update(User, user.id, banned=bool(banned))
 
     def set_flagged(self, user: User, flagged: bool, reason: Optional[str]) -> User:
-        user.flagged = bool(flagged)
-        user.flag_reason = ((reason or "").strip()[:500] or None) if flagged else None
-        self.db.save(user)
-        return user
+        flagged = bool(flagged)
+        return self.db.update(
+            User, user.id, flagged=flagged,
+            flag_reason=((reason or "").strip()[:500] or None) if flagged else None,
+        )

@@ -143,6 +143,9 @@ class Waitlist:
                     continue
                 with contextlib.suppress(asyncio.TimeoutError):
                     await asyncio.wait_for(changed.wait(), self.tick_s)
+            if t.cancelled:
+                yield cancelled_event()
+                return
             self.waiting[model_id].remove(t)
             t.started = time.time()
             self.running[model_id] = t

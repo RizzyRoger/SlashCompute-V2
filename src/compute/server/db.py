@@ -101,6 +101,18 @@ class Database:
             s.merge(row)
             s.commit()
 
+    def update(self, model, key, **fields):
+        """Change only these columns on the current row, so a stale object cannot wipe a ban."""
+        with self.session() as s:
+            row = s.get(model, key)
+            if row is None:
+                raise KeyError(key)
+            for name, value in fields.items():
+                setattr(row, name, value)
+            s.commit()
+            s.refresh(row)
+            return row
+
     def close(self) -> None:
         self.engine.dispose()
 

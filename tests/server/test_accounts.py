@@ -252,3 +252,48 @@ def test_engine_admin_routes_accept_the_admin_session(client):
     user = register(client, "a@lan.test")
     assert client.post(stop, headers=bearer(user)).status_code == 401
     assert client.post(stop, headers=bearer(admin_token(client))).status_code == 404   # past auth: unknown pipeline
+    client.cookies.clear()  # the admin login above left a session cookie
+    plan = client.get("/inference/plan", params={"model": "missing.gguf"})
+    assert plan.status_code == 401, plan.text
+    assert client.get("/inference/plan", params={"model": "missing.gguf"},
+                      headers=bearer(admin_token(client))).status_code == 404
+
+
+def test_admin_credit_rejects_non_positive_and_non_finite(client):
+    admin = admin_token(client)
+    uid = client.get("/auth/me", headers=bearer(register(client, "a@lan.test"))).json()["id"]
+    for flops in (-1e15, 0, "Infinity", "NaN"):
+        r = client.post(f"/admin/api/users/{uid}/credit", json={"flops": flops}, headers=bearer(admin))
+        assert r.status_code == 400, flops
+
+
+def test_record_never_charges_more_than_the_hold(client):
+    token = register(client, "a@lan.test")
+    sv = services(client)
+    uid = client.get("/auth/me", headers=bearer(token)).json()["id"]
+    sv.accounting.reserve(uid, "inf-1", 50.0)
+    sv.accounting.record("inf-1", {"n-a": 80.0}, 10, 1.0)
+    sv.accounting.settle("inf-1")
+    wallet = client.get("/wallet", headers=bearer(token)).json()
+    assert wallet["spent_total"] == pytest.approx(50.0)
+    assert wallet["balance"] == pytest.approx(STARTER_FLOPS_DEFAULT - 50.0)
+
+
+def test_negative_estimate_cannot_skip_the_balance_check(client):
+    token = register(client, "a@lan.test")
+    sv = services(client)
+    uid = client.get("/auth/me", headers=bearer(token)).json()["id"]
+    with pytest.raises(Exception) as e:
+        sv.accounting.reserve(uid, "inf-free", -1e15)
+    assert getattr(e.value, "status", 400) == 400
+
+
+def test_rename_does_not_clear_a_ban(client):
+    token = register(client, "a@lan.test", "Ada")
+    sv = services(client)
+    me = client.get("/auth/me", headers=bearer(token)).json()
+    stale = sv.auth.get(me["id"])
+    client.post(f"/admin/api/users/{me['id']}/ban", json={"banned": True}, headers=bearer(admin_token(client)))
+    sv.auth.rename(stale, "Ada Lovelace")
+    fresh = sv.auth.get(me["id"])
+    assert fresh.banned is True and fresh.name == "Ada Lovelace"

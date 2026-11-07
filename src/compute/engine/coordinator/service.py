@@ -516,7 +516,8 @@ def make_router(svc: InferenceService) -> APIRouter:
         return {"ok": True}
 
     @r.get("/plan")
-    async def plan_view(model: str, max_tokens: int = 256):
+    async def plan_view(model: str, request: Request, max_tokens: int = 256):
+        svc.check_token(request)
         row = svc.model_or_404(model)
         body = {"model": model, "max_tokens": max_tokens}
         ctx = ctx_for(body, s)

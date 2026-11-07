@@ -85,6 +85,30 @@ async def test_queued_event_repeats_while_waiting():
     assert events["b"][-1] == {"type": "final", "name": "b"}
 
 
+async def test_cancel_at_the_moment_the_slot_opens_does_not_start():
+    wl = Waitlist(tick_s=5.0)
+    order: list = []
+    gates = {n: asyncio.Event() for n in "ab"}
+    events = {n: [] for n in "ab"}
+    real = wl._can_start
+
+    def opens_cancelled(t):
+        ready = real(t)
+        if t.user_id == "u-b" and ready:
+            t.cancelled = True
+        return ready
+
+    wl._can_start = opens_cancelled
+    ta = asyncio.create_task(consume(wl, events, "a", "m", 10, order, gates))
+    await settle()
+    tb = asyncio.create_task(consume(wl, events, "b", "m", 10, order, gates))
+    await settle()
+    gates["a"].set()
+    await asyncio.gather(ta, tb)
+    assert order == ["a"]
+    assert events["b"][-1] == cancelled_event()
+
+
 async def test_slot_is_released_when_the_consumer_goes_away():
     wl = Waitlist(tick_s=5.0)
     order: list = []

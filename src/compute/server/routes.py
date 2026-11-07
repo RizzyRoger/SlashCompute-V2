@@ -26,9 +26,12 @@ def _set_cookie(response: Response, token: str) -> None:
 
 def _float(value, name: str) -> float:
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError) as e:
         raise HTTPException(400, f"{name} must be a number") from e
+    if number != number or number in (float("inf"), float("-inf")):
+        raise HTTPException(400, f"{name} must be a finite number")
+    return number
 
 
 def make_deps(sv: "Services"):
@@ -172,8 +175,8 @@ def make_router(sv: "Services") -> APIRouter:
     def admin_credit(user_id: str, body: dict, admin: User = Depends(require_admin)):
         u = target(user_id)
         flops = _float(body.get("flops"), "flops")
-        if flops == 0:
-            raise HTTPException(400, "flops must not be zero")
+        if flops <= 0:
+            raise HTTPException(400, "flops must be greater than zero")
         sv.ledger.post(u.id, "admin_credit", flops, note=(body.get("note") or "").strip()[:200] or "admin credit")
         return {"ok": True, "balance": None if is_admin(u) else sv.ledger.balance(u.id)}
 

@@ -216,12 +216,15 @@ def test_head_passes_mmproj_to_llama_server(tmp_path):
     assert head_extra_args({"n_gpu_layers": 41}, None) == ("-ngl", "41")
 
 
-@pytest.mark.skipif(not list(Path("~/.cache/huggingface/hub/models--unsloth--Qwen3.8-27B-GGUF/snapshots")
-                             .expanduser().glob("*/mmproj-F16.gguf")), reason="demo model not downloaded")
+def _qwen_snapshot() -> Path:
+    return Path("~/.cache/huggingface/hub/models--unsloth--Qwen3.8-27B-GGUF/snapshots").expanduser()
+
+
+@pytest.mark.skipif(not any(_qwen_snapshot().glob("*/mmproj-F16.gguf")) or not any(_qwen_snapshot().glob("*/Qwen3.8-27B*.gguf")),
+                    reason="demo model not downloaded")
 def test_real_qwen_snapshot_pairs_mmproj():
-    snap = Path("~/.cache/huggingface/hub/models--unsloth--Qwen3.8-27B-GGUF/snapshots").expanduser()
-    files = scan_models([str(snap)])
-    qwen = next(f for f in files if f["name"] == "Qwen3.8-27B-UD-Q4_K_XL.gguf")
+    files = scan_models([str(_qwen_snapshot())])
+    qwen = next(f for f in files if f["name"].startswith("Qwen3.8-27B"))
     assert qwen["mmproj"] == "mmproj-F16.gguf" and all(f["name"] != "mmproj-F16.gguf" for f in files)
 
 

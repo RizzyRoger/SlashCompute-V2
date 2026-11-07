@@ -8,6 +8,7 @@ charged; contributors still earn from the admin's requests.
 
 from __future__ import annotations
 
+import math
 import os
 import secrets
 import time
@@ -36,10 +37,15 @@ class LedgerError(Exception):
 
 def starter_flops() -> float:
     raw = os.environ.get("COMPUTE_STARTER_FLOPS")
+    if not raw:
+        return STARTER_FLOPS_DEFAULT
     try:
-        return float(raw) if raw else STARTER_FLOPS_DEFAULT
+        value = float(raw)
     except ValueError:
         return STARTER_FLOPS_DEFAULT
+    if not math.isfinite(value) or value < 0:
+        return STARTER_FLOPS_DEFAULT
+    return value
 
 
 def price_usd(pflops: float) -> float:
@@ -135,6 +141,8 @@ class Ledger:
 
     def reserve(self, user_id: str, account_id: str, flops: float, *, unlimited: bool,
                 session_id: Optional[str] = None) -> None:
+        if not math.isfinite(flops) or flops <= 0:
+            raise LedgerError("FLOP estimate must be a positive number", 400)
         with self.db.session() as s:
             if session_id:
                 cs = s.get(ChatSession, session_id)
@@ -156,19 +164,24 @@ class Ledger:
             res = s.get(Reservation, account_id)
             if res is None:
                 return
-            total = sum(f for f in per_node.values() if f > 0)
+            raw = sum(f for f in per_node.values() if math.isfinite(f) and f > 0)
+            room = max(0.0, float(res.held) - float(res.spent))
+            bill = min(raw, room)
+            scale = bill / raw if raw else 0.0
             for node_id, f in per_node.items():
                 owner = s.get(NodeOwner, node_id)
                 owner_user = s.get(User, owner.user_id) if owner else None
-                if f > 0 and owner_user is not None and not owner_user.banned:
-                    s.add(Txn(user_id=owner_user.id, kind="earn", flops=f, node_id=node_id, account_id=account_id,
-                              note="served a chat request"))
-            if total > 0 and not res.unlimited:
-                s.add(Txn(user_id=res.user_id, kind="spend", flops=-total, account_id=account_id, note="chat request"))
-            res.spent += total
+                share = f * scale
+                if share > 0 and owner_user is not None and not owner_user.banned:
+                    s.add(Txn(user_id=owner_user.id, kind="earn", flops=share, node_id=node_id,
+                              account_id=account_id, note="served a chat request"))
+            if bill > 0 and not res.unlimited:
+                s.add(Txn(user_id=res.user_id, kind="spend", flops=-bill, account_id=account_id,
+                          note="chat request"))
+            res.spent += bill
             s.add(res)
             if res.session_id and (cs := s.get(ChatSession, res.session_id)) is not None:
-                cs.spent += total
+                cs.spent += bill
                 s.add(cs)
             s.commit()
 
@@ -195,7 +208,7 @@ class Ledger:
     def create_session(self, user_id: str, model: str, max_flops: float) -> dict:
         if not model:
             raise LedgerError("model is required")
-        if not max_flops or max_flops <= 0:
+        if not math.isfinite(max_flops) or max_flops <= 0:
             raise LedgerError("max_flops must be a positive number")
         cs = ChatSession(id="s-" + secrets.token_hex(8), user_id=user_id, model=model, max_flops=float(max_flops))
         self.db.add(cs)
