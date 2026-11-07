@@ -54,7 +54,7 @@ def project(tmp_path_factory: pytest.TempPathFactory) -> Path:
 def shell_for(tmp_path: Path, pool: FakePool) -> TestClient:
     ctl = Controller(home=tmp_path / "home", popen=Recorder(), run=Recorder(),
                      http=httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(404))),
-                     discover_fn=lambda _t: None, lan_ip_fn=lambda: "10.0.0.5")
+                     lan_servers_fn=lambda: [], lan_ip_fn=lambda: "10.0.0.5")
     ctl.update_settings({"server_url": "http://pool:8765", "session_token": "tok"})
     upstream = httpx.AsyncClient(transport=httpx.MockTransport(pool))
     return TestClient(create_shell(controller=ctl, client=upstream, port=8766), base_url=SHELL_BASE)

@@ -20,6 +20,7 @@ const state = {
   attachNoticeShown: sessionStorage.getItem('attachNoticeShown') === '1',
   queueId: null,
   abort: null,
+  loadedUrl: null,   // the server the account, models and leaderboard were last loaded from
 }
 
 // The message line. `error` marks a failure so the stylesheet can tell it apart from good news.
@@ -74,27 +75,34 @@ const saveSettings = async (changes) => {
 
 // --------------------------------------------------------------- connect
 
+const serverState = (srv) => {
+  if (!srv.url) return srv.auto_join ? "looking for this network's pool..." : 'not connected'
+  const how = srv.auto_join ? "this network's pool" : 'set by hand'
+  return `${srv.url} (${srv.reachable ? 'online' : 'unreachable'}, ${how})`
+}
+
 const renderServer = (status) => {
   const { server: srv } = status
-  const where = srv.url || 'not connected'
-  $('server-state').textContent = srv.url ? `${where} (${srv.reachable ? 'online' : 'unreachable'})` : where
+  $('server-state').textContent = serverState(srv)
   $('server-local-state').textContent = srv.local_running
     ? `Running on this computer. Others can connect to ${srv.lan_url}`
     : 'Not running on this computer.'
 }
 
+// Turns auto-join back on after a typed address.
 const findOnLan = async () => {
-  say('Looking for a main server on this network...')
+  say("Looking for this network's pool...")
   const { url } = await shell.post('discover')
-  say(`Found ${url}`)
-  await afterConnect()
+  say(`Joined this network's pool at ${url}.`)
+  await pollStatus()
 }
 
+// A typed address (for a server off this network) stops following the network's pool.
 const connectTo = async (event) => {
   const { url } = formData(event.target)
-  await saveSettings({ server_url: url })
-  say(`Server set to ${state.settings.server_url}`)
-  await afterConnect()
+  await saveSettings({ server_url: url, auto_join: false })
+  say(`Server set to ${state.settings.server_url}. To go back to this network's pool, click Join this network's pool.`)
+  await pollStatus()
 }
 
 const startServer = async (event) => {
@@ -103,19 +111,13 @@ const startServer = async (event) => {
   await shell.post('server/start', { email, password })
   event.target.reset()
   say('Main server started.')
-  await afterConnect()
+  await pollStatus()
 }
 
 const stopServer = async () => {
   await shell.post('server/stop')
   say('Main server stopped.')
   await pollStatus()
-}
-
-const afterConnect = async () => {
-  await pollStatus()
-  await loadAccount()
-  await loadModels().catch(() => {})
 }
 
 const initConnect = () => {
@@ -550,12 +552,23 @@ const showSection = () => {
 
 // ----------------------------------------------------------------- start
 
+// The shell joins this network's pool on each poll, so the server can change under us.
 const pollStatus = async () => {
   const status = await shell.get('status')
   state.settings = status.settings
   renderServer(status)
   renderNode(status.node)
   renderSettings()
+  const { url, reachable } = status.server
+  if (url && reachable && url !== state.loadedUrl) await serverChanged(url)
+}
+
+// A new (or newly reachable) server: load the account, models and leaderboard from it.
+const serverChanged = async (url) => {
+  state.loadedUrl = url
+  await loadAccount().catch(fail)
+  await loadModels().catch(() => {})
+  await loadBoard().catch(() => {})
 }
 
 const start = async () => {
@@ -570,10 +583,6 @@ const start = async () => {
   initCode({ say, fail, guarded })
   await pollStatus().catch(fail)
   setInterval(() => pollStatus().catch(() => {}), STATUS_POLL_MS)
-  if (!state.settings || !state.settings.server_url) return
-  await loadAccount().catch(fail)
-  await loadModels().catch(() => {})
-  await loadBoard().catch(() => {})
 }
 
 start()

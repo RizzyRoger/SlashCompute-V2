@@ -29,10 +29,12 @@ def json_handler(routes: dict[str, Callable[[httpx.Request], httpx.Response]]):
 
 @pytest.fixture
 def make_controller(tmp_path: Path):
-    def build(popen=None, run=None, routes=None, **kwargs) -> Controller:
+    def build(popen=None, run=None, routes=None, lan=(), **kwargs) -> Controller:
+        """``lan``: the main servers mDNS "sees" (a list, or a callable for ones that change)."""
         http = httpx.Client(transport=httpx.MockTransport(json_handler(routes or {})))
+        lan_fn = lan if callable(lan) else (lambda: list(lan))
         return Controller(home=tmp_path, popen=popen or Recorder(), run=run or Recorder(), http=http,
-                          discover_fn=lambda _t: None, lan_ip_fn=lambda: "10.0.0.5",
+                          lan_servers_fn=lan_fn, lan_ip_fn=lambda: "10.0.0.5",
                           server_wait_s=0.3, node_wait_s=0.2, **kwargs)
     return build
 

@@ -113,16 +113,18 @@ Rules:
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/` | barebones UI |
-| GET/POST | `/api/settings` | `{server_url, memory_percent, models_dirs: [], contribute: bool, session_token}` |
-| GET | `/api/status` | `{server: {url, reachable, local_running}, node: {running, status...}, settings}` |
-| POST | `/api/discover` | finds a main server on the LAN (mDNS) and saves its URL |
-| POST | `/api/server/start` | `{email, password}`: starts a local main server (admin only; error text comes from the server) |
+| GET/POST | `/api/settings` | `{server_url, memory_percent, models_dirs: [], contribute: bool, session_token, auto_join: bool}`. `auto_join` (default true) follows this network's pool; the UI sets it false when you type an address. |
+| GET | `/api/status` | `{server: {url, reachable, local_running, lan_url, health, auto_join, lan: [{url, name}]}, node: {running, status...}, settings, last_error}`. Each call also joins this network's pool (see below). |
+| POST | `/api/discover` | turns `auto_join` back on and joins this network's pool, waiting up to 5 s for an advert; 404 if none |
+| POST | `/api/server/start` | `{email, password}`: starts a local main server (admin only; error text comes from the server). Refused when another main server is already advertised on the LAN: one pool per network. |
 | POST | `/api/server/stop` | – |
 | POST | `/api/node/start` / `/api/node/stop` | start/stop contributing (needs a session token whose terms are accepted) |
 | ANY | `/api/coord/{path}` | proxy to the main server, forwarding the auth header/cookie |
 | POST | `/api/chat` | streaming proxy to `/v1/chat/completions` (SSE passthrough, including `queued` events) |
 | POST | `/api/attach` | multipart `file` → `{kind: "text"\|"image", name, size, text? , data_url?}`. Extraction runs locally; nothing is sent to the pool until the user sends a message. |
 | GET | `/api/folders?path=&hidden=` | Fallback folder picker. In the app window, "Choose folder..." (Code tab project folder, model folders) opens the system dialog (Finder / File Explorer) through `pywebview.api.choose_folder(start)` (`app/main.py`); in a plain browser the UI browses with this endpoint instead: `{path, name, parent, crumbs: [{name, path}], folders: [{name, path}], truncated, places: [{name, path}]}`. Sub-folders only (no files), sorted by name, hidden ones (dot-folders, OS-hidden) only with `hidden=true`, at most 2000. No `path` = the home folder. 400 relative path, 403 no permission, 404 not a folder. |
+
+**One pool per network.** The main server advertises `_compute._tcp.local.` over mDNS with TXT `started` (unix seconds) and `version`. The shell browses for it all the time, and on every `/api/status` with `auto_join` on it switches `server_url` to the advertised server that started first (ties: by service name; adverts without `started` sort last). Every app on the network therefore picks the same pool. If nothing is advertised it keeps the saved address. Adverts use a 120 s TTL and the server sends goodbyes when it stops, so apps drop a stopped server at once and a crashed one within about 2 minutes. When a computer's LAN address changes (another Wi-Fi, a hotspot), the server re-advertises on the new network every 5 s check with the same `started`, and the app's browser starts over on its new network. A running node whose `--url` differs from `server_url` is asked to stop and, once it has exited, started again on the current pool. Set `COMPUTE_MDNS_TYPE` (e.g. `_compute-test._tcp.local.`) on a test server and app to keep a test pool apart from everyone else's.
 
 ---
 
