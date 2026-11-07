@@ -20,7 +20,7 @@ import psutil
 
 from compute.cli import self_command
 from compute.common.config import EngineConfig, default_home
-from compute.common.discovery import LanBrowser, LanServer, choose_pool, lan_ip
+from compute.common.discovery import LanBrowser, LanServer, choose_pool, lan_ip, local_network_blocked
 
 SERVER_START_WAIT_S = 20.0
 DISCOVER_WAIT_S = 5.0
@@ -145,7 +145,7 @@ def tail(path: Path, since: int = 0, chars: int = LOG_TAIL_CHARS) -> str:
 
 def exit_message(code: Optional[int], log_tail: str) -> str:
     if code == 2:
-        head = "Only the admin account can start the main server."
+        head = "The main server refused to start."
     else:
         head = f"The main server stopped (exit code {code})."
     return f"{head}\n{log_tail}" if log_tail else head
@@ -160,6 +160,7 @@ class Controller:
         http: Optional[httpx.Client] = None,
         lan_servers_fn: Optional[Callable[[], list[LanServer]]] = None,
         lan_ip_fn: Callable[[], str] = lan_ip,
+        local_network_blocked_fn: Callable[[str], bool] = local_network_blocked,
         server_wait_s: float = SERVER_START_WAIT_S,
         node_wait_s: float = NODE_EARLY_EXIT_WAIT_S,
     ) -> None:
@@ -174,6 +175,7 @@ class Controller:
         self._follow_lock = threading.Lock()
         self._node_moving = False   # a node is draining to restart on the current pool
         self._lan_ip = lan_ip_fn
+        self._local_network_blocked = local_network_blocked_fn
         self._server_wait_s = server_wait_s
         self._node_wait_s = node_wait_s
         self._server_proc: Any = None
@@ -289,7 +291,7 @@ class Controller:
     def start_server(self, email: str, password: str) -> dict:
         email, password = (email or "").strip(), password or ""
         if not email or not password:
-            raise ControllerError("Enter the admin email and password.")
+            raise ControllerError("Enter your email and a password.")
         if self.server_pid() is not None:
             return self.status()
         other = choose_pool(s for s in self.lan_servers() if s.url != self.lan_server_url())
@@ -490,13 +492,16 @@ class Controller:
         if health is None and local_running:
             health = self.health(self.local_server_url())
         lan = self.lan_servers()
+        blocked = self._local_network_blocked(self._lan_ip())
         return {
+            "local_network_blocked": blocked,
             "server": {
                 "url": settings.server_url,
                 "reachable": health is not None,
                 "local_running": local_running,
                 "lan_url": self.lan_server_url() if local_running else "",
-                "advertised": self.advertised(lan),
+                # blocked: the advert only reaches us over loopback, so seeing it proves nothing
+                "advertised": False if blocked and local_running else self.advertised(lan),
                 "health": health or {},
                 "auto_join": settings.auto_join,
                 "lan": [{"url": s.url, "name": s.name} for s in lan],

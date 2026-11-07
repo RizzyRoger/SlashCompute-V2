@@ -1,4 +1,4 @@
-"""Email + password accounts and bearer/cookie sessions. Only ``config.admin_email()`` is ever admin."""
+"""Email + password accounts and bearer/cookie sessions. The admin is ``config.admin_email()``: the pool's host."""
 
 from __future__ import annotations
 
@@ -115,20 +115,21 @@ class Auth:
         if self.get_by_email(email) is not None:
             raise AuthError("That email is already registered.", 409)
         if admin_email() and email == admin_email():
-            raise AuthError("That email is reserved for the server admin.", 403)
+            raise AuthError("That email is reserved for this pool's host.", 403)
         return self._create(email, password, name)
 
     def ensure_admin(self, email: str, password: str) -> User:
-        """First start creates the admin with ``password``; later starts must match it."""
+        """First start creates the host's account with ``password`` (or adopts an existing one with the right
+        password); later starts must match it."""
         email = normalize_email(email)
         if not admin_email() or email != admin_email():
-            raise AuthError("Only the admin account can run the main server.", 403)
+            raise AuthError("Start the server as the account that hosts it.", 403)
         _check_password(password)
         user = self.get_by_email(email)
         if user is None:
             return self._create(email, password, "admin")
         if not verify_password(password, user.password_hash):
-            raise AuthError("Wrong admin password.", 401)
+            raise AuthError("Wrong password for that email. Use the password you chose the first time you hosted.", 401)
         return user
 
     def login(self, email: str, password: str) -> tuple[User, str]:

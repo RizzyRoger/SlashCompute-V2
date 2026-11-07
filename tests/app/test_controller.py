@@ -92,12 +92,12 @@ def test_server_argv_and_password_only_in_env(make_controller, monkeypatch, tmp_
 
 
 def test_server_early_exit_surfaces_message(make_controller, monkeypatch):
-    popen = Recorder(exit_code=2, log_text="error: only the admin may run the server\n")
+    popen = Recorder(exit_code=2, log_text="compute server: a password is required\n")
     c = make_controller(popen=popen)
     with pytest.raises(ControllerError) as e:
         c.start_server("someone@example.com", "pw")
-    assert "Only the admin" in str(e.value)
-    assert "only the admin may run the server" in str(e.value)
+    assert "refused to start" in str(e.value)
+    assert "a password is required" in str(e.value)
     assert not c.server_pid_path.exists()
 
 
@@ -368,3 +368,17 @@ def test_own_server_missing_from_the_network_is_flagged_after_a_grace_period(mak
 
 def test_advertised_is_none_without_a_local_server(make_controller):
     assert make_controller(lan=[EARLY]).status()["server"]["advertised"] is None
+
+
+def test_blocked_local_network_is_reported_and_its_own_advert_does_not_count(make_controller, monkeypatch):
+    seen = []
+    c = make_controller(lan=[LanServer("http://10.0.0.5:8765", "compute-me", 1.0)],   # seen over loopback only
+                        local_network_blocked_fn=lambda ip: seen.append(ip) or True)
+    running_server(c, monkeypatch, age_s=60)
+    st = c.status()
+    assert st["local_network_blocked"] is True and seen == ["10.0.0.5"]
+    assert st["server"]["advertised"] is False
+
+
+def test_open_local_network_is_not_reported(make_controller):
+    assert make_controller().status()["local_network_blocked"] is False

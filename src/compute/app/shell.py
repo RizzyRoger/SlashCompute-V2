@@ -21,7 +21,7 @@ from compute.common.caching import REVALIDATE, RevalidatedStaticFiles
 
 SHELL_HOST = "127.0.0.1"
 SHELL_PORT = int(os.environ.get("COMPUTE_SHELL_PORT", "8766"))
-SHELL_GENERATION = 10
+SHELL_GENERATION = 11
 # Forming a pipeline (loading weights over RPC) can take minutes before the first token.
 STREAM_TIMEOUT = httpx.Timeout(None, connect=5.0)
 PROXY_TIMEOUT = httpx.Timeout(60.0, connect=5.0)

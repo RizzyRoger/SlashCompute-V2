@@ -6,7 +6,7 @@ See `docs/` for the API contract, install notes and draft terms.
 
 ## Secrets and settings (.env)
 
-Copy `.env.example` to `.env` and fill in `COMPUTE_ADMIN_EMAIL` (required on the server machine), and optionally `COMPUTE_ADMIN_PASSWORD` and `COMPUTE_INF_TOKEN`. `.env` is git-ignored. The packaged app reads `~/.compute/.env` (Mac) or `%LOCALAPPDATA%\compute\.env` (Windows). Real environment variables override the file.
+Copy `.env.example` to `.env` and optionally fill in `COMPUTE_ADMIN_EMAIL`, `COMPUTE_ADMIN_PASSWORD` and `COMPUTE_INF_TOKEN`. `.env` is git-ignored. The packaged app reads `~/.compute/.env` (Mac) or `%LOCALAPPDATA%\compute\.env` (Windows). Real environment variables override the file.
 
 ## Code tabs
 
@@ -25,7 +25,7 @@ uv run pytest -q                                   # 337 tests, no GPU needed
 Roles (the packaged app runs the same subcommands on itself):
 
 ```bash
-compute server serve --admin-email "$COMPUTE_ADMIN_EMAIL"   # main server, admin only (email + password from .env)
+compute server serve --admin-email "$COMPUTE_ADMIN_EMAIL"   # host a pool: you become its admin
 compute node start --url http://<server>:8765 --memory-percent 50 --models-dir ~/models  # contribute
 ```
 

@@ -92,15 +92,23 @@ const notAdvertisedWarning = (srv) => [
   `Check everyone is on the same Wi-Fi. Meanwhile others can type ${srv.lan_url} under Connect.`,
 ].join(' ')
 
+// Shown on every computer whose OS blocks the app from the LAN: nothing on the network can work until it's fixed.
+const blockedWarning = () => IS_MAC
+  ? "macOS is blocking /compute from your local network, so it can't find or reach any other computer. "
+    + 'Open System Settings > Privacy & Security > Local Network, turn compute on, then quit and reopen /compute.'
+  : "Windows is blocking /compute from your local network. Allow compute through Windows Defender Firewall on Private networks, set this network to Private, then reopen /compute."
+
 const renderServer = (status) => {
   const { server: srv } = status
   $('server-state').textContent = serverState(srv)
   $('server-local-state').textContent = srv.local_running
     ? `Running on this computer. Others can connect to ${srv.lan_url}`
     : 'Not running on this computer.'
-  const warn = srv.local_running && srv.advertised === false   // null: too early to tell
-  $('server-warning').hidden = !warn
-  $('server-warning').textContent = warn ? notAdvertisedWarning(srv) : ''
+  const warning = status.local_network_blocked ? blockedWarning()
+    : srv.local_running && srv.advertised === false ? notAdvertisedWarning(srv)   // null: too early to tell
+    : ''
+  $('server-warning').hidden = !warning
+  $('server-warning').textContent = warning
 }
 
 // Turns auto-join back on after a typed address.

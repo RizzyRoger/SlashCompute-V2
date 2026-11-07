@@ -1,4 +1,4 @@
-"""Admin-only start, accounts, terms, wallet, checkout, admin API, leaderboard, sessions (no cluster)."""
+"""Hosting (anybody can start a pool), accounts, terms, wallet, checkout, admin API, leaderboard, sessions (no cluster)."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import time
 import pytest
 from typer.testing import CliRunner
 
+from compute.common.config import admin_email
 from compute.engine.accounting import AccountingError
 from compute.server.db import Txn
 from compute.server.ledger import PFLOP, STARTER_FLOPS_DEFAULT, WEEK_S
@@ -14,7 +15,7 @@ from compute.server.main import app as server_cli
 from srv_helpers import ADMIN, ADMIN_PW, admin_token, bearer, register, services
 
 
-# ------------------------------------------------------------ start (admin only)
+# ------------------------------------------------------------ start (anybody can host)
 
 @pytest.fixture
 def no_bind(monkeypatch):
@@ -28,9 +29,16 @@ def serve(home, email, password):
                                            "--home", str(home), "--no-mdns"])
 
 
-def test_non_admin_email_cannot_start_the_server(tmp_path, no_bind):
-    res = serve(tmp_path, "someone@else.test", "password1")
-    assert res.exit_code == 2
+def test_anybody_can_host_and_becomes_the_pools_admin(tmp_path, no_bind):
+    res = serve(tmp_path, "Someone@Else.test", "password1")
+    assert res.exit_code == 0, res.output
+    assert len(no_bind) == 1
+    assert admin_email() == "someone@else.test"
+
+
+def test_hosting_needs_an_email_and_a_password(tmp_path, no_bind):
+    assert serve(tmp_path, "someone@else.test", "").exit_code == 2
+    assert serve(tmp_path, " ", "password1").exit_code == 2
     assert not no_bind                        # refused before binding
 
 
@@ -42,18 +50,27 @@ def test_admin_is_created_on_first_start_and_checked_afterwards(tmp_path, no_bin
     assert serve(tmp_path, ADMIN, ADMIN_PW).exit_code == 0
 
 
-def test_server_refuses_to_start_without_a_configured_admin(tmp_path, no_bind, monkeypatch):
+def test_hosting_needs_no_admin_in_env(tmp_path, no_bind, monkeypatch):
     monkeypatch.delenv("COMPUTE_ADMIN_EMAIL")
-    res = serve(tmp_path, ADMIN, ADMIN_PW)
-    assert res.exit_code == 2
-    assert "COMPUTE_ADMIN_EMAIL" in res.output
-    assert not no_bind
+    assert serve(tmp_path, ADMIN, ADMIN_PW).exit_code == 0
+    assert admin_email() == ADMIN
 
 
-def test_admin_email_env_override(tmp_path, no_bind, monkeypatch):
+def test_the_host_wins_over_the_env_admin(tmp_path, no_bind, monkeypatch):
     monkeypatch.setenv("COMPUTE_ADMIN_EMAIL", "boss@lan.test")
-    assert serve(tmp_path, ADMIN, ADMIN_PW).exit_code == 2
-    assert serve(tmp_path, "boss@lan.test", ADMIN_PW).exit_code == 0
+    assert serve(tmp_path, ADMIN, ADMIN_PW).exit_code == 0
+    assert admin_email() == ADMIN
+
+
+def test_a_registered_user_can_host_with_their_own_password(tmp_path, no_bind, monkeypatch):
+    from compute.server.auth import Auth
+    from compute.server.db import Database, database_path
+
+    db = Database(database_path(tmp_path))
+    Auth(db).register("guest@lan.test", "guest-pass1", "Guest")
+    db.close()
+    assert serve(tmp_path, "guest@lan.test", "not-their-pass").exit_code == 2
+    assert serve(tmp_path, "guest@lan.test", "guest-pass1").exit_code == 0
 
 
 # ------------------------------------------------------------ accounts

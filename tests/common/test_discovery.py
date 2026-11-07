@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+import errno
 import math
 import socket
 
 import zeroconf
+import pytest
 import zeroconf.asyncio
 
+from compute.common import discovery
 from compute.common.discovery import Advertiser, LanBrowser, LanServer, choose_pool, lan_server
 
 IP = socket.inet_aton("192.168.1.10")
@@ -108,3 +111,39 @@ def test_browser_starts_over_when_this_computer_changes_network(monkeypatch):
     browser.remove_service(old_zc, "t", "a")   # late callbacks from the old browser are ignored
     browser.close()
     assert made[1].closed
+
+
+class FakeUdp:
+    """A UDP socket whose sendto fails with ``error`` (None: it sends)."""
+
+    def __init__(self, error=None):
+        self.error, self.sent, self.closed = error, [], False
+
+    def __call__(self, *a):
+        return self
+
+    def setsockopt(self, *a):
+        pass
+
+    def sendto(self, data, addr):
+        if self.error is not None:
+            raise OSError(self.error, "fake")
+        self.sent.append((data, addr))
+
+    def close(self):
+        self.closed = True
+
+
+@pytest.mark.parametrize("error, blocked", [(None, False), (errno.EHOSTUNREACH, True), (errno.ENETDOWN, False)])
+def test_local_network_blocked_is_no_route_to_host_on_the_lan(monkeypatch, error, blocked):
+    fake = FakeUdp(error)
+    monkeypatch.setattr(discovery.socket, "socket", fake)
+    assert discovery.local_network_blocked("192.168.1.10") is blocked
+    assert fake.closed
+    if error is None:
+        assert fake.sent == [(bytes(12), ("224.0.0.251", 5353))]   # an empty mDNS query
+
+
+def test_local_network_is_not_blocked_when_offline(monkeypatch):
+    monkeypatch.setattr(discovery.socket, "socket", FakeUdp(errno.EHOSTUNREACH))
+    assert discovery.local_network_blocked("127.0.0.1") is False

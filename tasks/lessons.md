@@ -6,3 +6,4 @@
 - "Select a folder visually" means the native OS dialog (Finder / File Explorer, via pywebview), like Claude Code does. Reach for the platform's own picker before building a custom in-app widget (2026-11-07).
 - Fetch origin before planning: teammates push straight to main (the tab split landed while a plan for it was being written) (2026-11-07).
 - Test LAN features across a network change too: people hop between Wi-Fi and hotspots, and mDNS adverts and browsers are bound to the interfaces present when they start (2026-11-07).
+- Test LAN features in the packaged app, not only from source: a source run inherits the terminal's Local Network permission, the `.app` needs its own. "No route to host" (errno 65) to a LAN address means macOS Local Network privacy is blocking that app; it can still reach the router, and it sees its own mDNS advert over loopback, so neither proves the LAN works (2026-11-07).
