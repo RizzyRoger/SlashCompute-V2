@@ -533,6 +533,21 @@ const initBoard = () => {
   $('board-window').addEventListener('change', guarded(loadBoard))
 }
 
+// -------------------------------------------------------------- sections
+
+const SECTIONS = ['connect', 'account', 'contribute', 'chat', 'code', 'wallet', 'leaderboard']
+
+const showSection = () => {
+  const requested = location.hash.slice(1)
+  const id = SECTIONS.includes(requested) ? requested : 'connect'
+  if (location.hash !== `#${id}`) history.replaceState(null, '', `#${id}`)
+  for (const name of SECTIONS) $(name).hidden = name !== id
+  for (const link of document.querySelectorAll('header nav a')) {
+    const on = link.getAttribute('href') === `#${id}`
+    link.setAttribute('aria-current', on ? 'page' : 'false')
+  }
+}
+
 // ----------------------------------------------------------------- start
 
 const pollStatus = async () => {
@@ -544,6 +559,8 @@ const pollStatus = async () => {
 }
 
 const start = async () => {
+  window.addEventListener('hashchange', showSection)
+  showSection()
   initConnect()
   initAccount()
   initContribute()

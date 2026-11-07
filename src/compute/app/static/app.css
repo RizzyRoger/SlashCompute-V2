@@ -31,11 +31,11 @@ header h1::first-letter {color:var(--primary);}
 #signin-state {margin:0;align-self:center;color:var(--muted-foreground);font:11px var(--font-mono);}
 nav {grid-column:1/-1;display:flex;flex-wrap:wrap;gap:22px;padding-top:14px;}
 nav a {color:var(--muted-foreground);font:12px var(--font-mono);text-decoration:none;padding:12px 0;border-bottom:2px solid transparent;transition:border-color 150ms ease,color 150ms ease;}
-nav a:hover,nav a:focus-visible {color:var(--primary);border-bottom-color:var(--primary);}
+nav a:hover,nav a:focus-visible,nav a[aria-current="page"] {color:var(--primary);border-bottom-color:var(--primary);}
 #message {grid-column:1/-1;color:var(--primary);font:11px/1.8 var(--font-mono);margin:0;}
 #message:not(:empty) {padding:8px 0;}
 main {max-width:1250px;margin:auto;padding:12px 40px 60px;}
-main > section {padding:36px 0 46px;border-bottom:1px solid var(--line);scroll-margin-top:158px;}
+main > section {padding:36px 0 46px;scroll-margin-top:158px;}
 h2 {font-size:36px;font-weight:700;line-height:1.2;margin:0 0 26px;}
 h3 {font-size:17px;font-weight:500;margin:26px 0 16px;}
 p {font-size:13px;line-height:1.85;}
