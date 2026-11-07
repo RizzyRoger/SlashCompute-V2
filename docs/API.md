@@ -122,3 +122,56 @@ Rules:
 | ANY | `/api/coord/{path}` | proxy to the main server, forwarding the auth header/cookie |
 | POST | `/api/chat` | streaming proxy to `/v1/chat/completions` (SSE passthrough, including `queued` events) |
 | POST | `/api/attach` | multipart `file` → `{kind: "text"\|"image", name, size, text? , data_url?}`. Extraction runs locally; nothing is sent to the pool until the user sends a message. |
+
+---
+
+## Code harness (`/api/code/*` on the app shell)
+
+A Code tab lets a pool model read and edit files in a folder you choose. The tools run **on this computer** (`src/compute/app/code/`); only the model's prompts (including file text it reads and command output) go to the pool. Each tab is a session with its own folder, model, permission mode, optional FLOP budget and transcript, saved in `<home>/code/<id>.json` (tabs survive a restart).
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `/api/code/sessions` | – | `{sessions: [meta]}` |
+| POST | `/api/code/sessions` | `{root, model, mode?, budget_pflops?, title?}` | `meta`. `root` must be an existing folder (not `/`, the home folder, or the /compute home). `budget_pflops > 0` opens a server FLOP session (`POST /sessions`) that caps the tab's spending. |
+| GET | `/api/code/sessions/{id}?after=N` | – | snapshot: `{session: meta, entries[seq > N], partial, state, activity, mode, pending, plan, queue, spent_flops, budget_flops, checkpoints}` |
+| PATCH | `/api/code/sessions/{id}` | `{mode?, title?, model?, budget_pflops?}` | `meta`. A mode change applies to the next tool call. |
+| DELETE | `/api/code/sessions/{id}` | – | `{ok}` (stops the turn, deletes the transcript) |
+| POST | `/api/code/sessions/{id}/messages` | `{text}` | `meta`; starts a turn (409 while one runs) |
+| POST | `/api/code/sessions/{id}/approval` | `{id, approve, note?}` | `{ok}`; answers the pending approval (409 if none or out of date) |
+| POST | `/api/code/sessions/{id}/plan` | `{action: auto\|manual\|revise, note?}` | `meta`; approves the proposed plan (switching mode) or asks for changes |
+| POST | `/api/code/sessions/{id}/revert` | `{turn}` | the `revert` entry; puts files the assistant changed from that message onward back (409 while running) |
+| POST | `/api/code/sessions/{id}/stop` | – | `meta`; cancels the turn (kills a running command) |
+| GET | `/api/code/sessions/{id}/events?after=N` | – | SSE: `{entry}`, `{partial: {text, thinking}}`, `{state: {...}}`, `{ping}` while waiting, `{done}` once the tab is idle |
+
+`meta` = `{id, root, model, mode, title, created, state: idle|running|waiting, activity, spent_flops, budget_flops, flop_session_id, pending: bool, plan: bool, entries}`.
+Entry kinds: `user`, `assistant {text, thinking, flops}`, `tool {tool, target, status: auto|approved|rejected|denied|error, reason, output, diff, risk}`, `plan`, `mode`, `revert`, `notice`, `error`.
+
+### Permission modes
+
+| Tool | Plan | Manual | Auto |
+|---|---|---|---|
+| `list_files`, `read_file`, `search` | allow | allow | allow |
+| read a secrets file (`.env*`, `*.pem`, `*.key`, `id_*` keys) | ask | ask | ask |
+| `write_file`, `edit_file` | deny | ask (diff shown) | allow (ask for secrets files) |
+| `delete_file` | deny | ask | ask |
+| `run_command`, read-only (`ls`, `cat`, `grep`, `git status/diff/log`...) | allow | ask | allow |
+| `run_command`, normal (`pytest`, `npm test`, `mkdir`, `python x.py`...) | deny | ask | allow |
+| `run_command`, powerful | deny | ask | ask |
+| `propose_plan` | ends the turn, shows the plan | deny | deny |
+
+Always refused: paths outside the folder (symlinks included) and writes inside `.git`. **Powerful** commands (`code/commands.py`): deleting (`rm`, `del`), `sudo`, permission changes, killing processes, network tools (`curl`, `ssh`, `rsync`...), containers, opening apps or changing system settings, `git push / reset --hard / clean / rebase / checkout -- / branch -D`, installing or publishing packages, `$(...)` and backticks, `eval`/`xargs`, piping into a shell or interpreter, inline code (`python -c`), background jobs (`&`), and any argument that points outside the folder. A command line is split on `&& || ; |` and its most severe part decides. Commands run in the folder with a 2-minute limit, no input, a login-shell `PATH`, and without `COMPUTE_*` variables.
+
+### Tool-call protocol
+
+The model writes one call per reply as text, so any pool model can use it:
+
+```
+Fixing the sign.
+<tool name="edit_file"><path>app.py</path><old>return a - b</old><new>return a + b</new></tool>
+```
+
+Requests carry `stop: ["</tool>"]` (llama-server stops right after the call), `max_tokens: 2048` and the tab's `session_id`. Results come back as a user message `<tool_result name="...">...</tool_result>`. Single-value tools (`propose_plan`, `run_command`, `read_file`, `list_files`, `delete_file`, `search`) also accept the value written straight inside the tool tag; a malformed call gets an error showing the exact format. A reply without a call ends the turn (an empty reply first gets one nudge); a turn stops after 30 tool calls. Older tool output is shortened once the history passes about 40k characters.
+
+### Checkpoints
+
+Every edit, new file or deletion made through the tools is recorded per turn (the file's earlier bytes). `revert` restores everything changed from a given message onward, newest first, reports files that were edited outside the assistant in the meantime, and tells the model in its next request. Changes made by shell commands aren't tracked.

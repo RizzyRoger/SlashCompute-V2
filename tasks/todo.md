@@ -29,3 +29,14 @@ Known gaps:
 - Windows code paths are unit-tested only; they haven't run on real Windows.
 - Builds are unsigned.
 - The server and node keep running after the app window closes. That's deliberate so contributing continues; quitting them is a product decision for later.
+
+# Code harness (file editing with Plan / Auto / Manual)
+
+Plan: ~/.claude/plans/okay-can-you-add-jiggly-dragonfly.md · Contract: docs/API.md ("Code harness") · PRD: coding-assistant section
+
+- [x] `app/code/`: workspace (safe paths, previewed edits), commands (risk classifier, runner), policy (mode matrix), protocol (text tool calls), harness (agent loop, approvals, persistence), routes
+- [x] Shell wiring (`/api/code/*`, SHELL_GENERATION 8) and the Code section UI (`static/code.js`): session tabs, mode switch, approval card with diff, plan approval, Stop, budget, reload-safe
+- [x] File-change checkpoints: per-turn undo of the assistant's edits (PRD safeguard)
+- [x] Tests: workspace, commands, policy matrix, harness loop, routes (scripted model + MockTransport)
+- [x] Browser check against a scripted pool; real run on a local pool with gemma-4-12B
+- [ ] Windows: command classification covers cmd names, but the runner hasn't run on real Windows
