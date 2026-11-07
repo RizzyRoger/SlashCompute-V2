@@ -221,11 +221,12 @@ class CodeSession:
     def __init__(self, *, id: str, root: str, model: str, mode: str, title: str, created: float,
                  store: Path, llm: Llm, flop_session_id: str = "", budget_flops: float = 0.0,
                  spent_flops: float = 0.0, messages: Optional[list] = None, entries: Optional[list] = None,
-                 plan: str = "", checkpoints: Optional[list] = None) -> None:
+                 plan: str = "", checkpoints: Optional[list] = None, run_commands: bool = False) -> None:
         self.id = id
         self.ws = wsmod.Workspace(Path(root))
         self.model = model
         self.mode = mode
+        self.run_commands = run_commands   # Auto mode runs normal commands without asking (opt-in)
         self.title = title
         self.created = created
         self.store = store
@@ -261,6 +262,7 @@ class CodeSession:
             "title": self.title, "created": self.created, "flop_session_id": self.flop_session_id,
             "budget_flops": self.budget_flops, "spent_flops": self.spent_flops, "plan": self.plan,
             "messages": self.messages, "entries": self.entries, "checkpoints": self.checkpoints,
+            "run_commands": self.run_commands,
         }
 
     @classmethod
@@ -271,7 +273,7 @@ class CodeSession:
                    store=store, llm=llm, flop_session_id=str(rec.get("flop_session_id") or ""),
                    budget_flops=float(rec.get("budget_flops") or 0), spent_flops=float(rec.get("spent_flops") or 0),
                    messages=rec.get("messages") or [], entries=rec.get("entries") or [], plan=str(rec.get("plan") or ""),
-                   checkpoints=rec.get("checkpoints") or [])
+                   checkpoints=rec.get("checkpoints") or [], run_commands=bool(rec.get("run_commands")))
 
     def save(self) -> None:
         if self.closed:   # a cancelled turn finishing after its tab closed must not bring the file back
@@ -319,11 +321,12 @@ class CodeSession:
             "title": self.title, "created": self.created, "state": self.state, "activity": self.activity,
             "spent_flops": self.spent_flops, "budget_flops": self.budget_flops,
             "flop_session_id": self.flop_session_id, "pending": self.pending is not None,
-            "plan": bool(self.plan), "entries": len(self.entries),
+            "plan": bool(self.plan), "entries": len(self.entries), "run_commands": self.run_commands,
         }
 
     def state_view(self) -> dict:
         return {"state": self.state, "activity": self.activity, "mode": self.mode, "model": self.model,
+                "run_commands": self.run_commands,
                 "title": self.title, "pending": self.pending, "plan": self.plan, "queue": self.queue,
                 "spent_flops": self.spent_flops, "budget_flops": self.budget_flops,
                 "checkpoints": [checkpoint_view(cp) for cp in self.checkpoints]}
@@ -498,7 +501,7 @@ class CodeSession:
                     output=clip(result, ENTRY_TEXT_CHARS), diff=diff, risk=risk)
 
     async def handle(self, call: ToolCall) -> None:
-        decision = decide(self.mode, call.name, call.args, self.ws)
+        decision = decide(self.mode, call.name, call.args, self.ws, self.run_commands)
         if decision.action == DENY:
             self.add_result(call, "denied", f"Not allowed: {decision.reason}.", decision.reason, risk=decision.risk)
             return
@@ -719,7 +722,8 @@ class CodeManager:
         session = CodeSession(id=uuid.uuid4().hex[:12], root=str(root), model=model, mode=mode,
                               title=str(body.get("title") or root.name).strip() or root.name,
                               created=time.time(), store=self.dir, llm=self.llm,
-                              flop_session_id=flop_session_id, budget_flops=pflops * PFLOP)
+                              flop_session_id=flop_session_id, budget_flops=pflops * PFLOP,
+                              run_commands=bool(body.get("run_commands")))
         self.sessions[session.id] = session
         session.commit("notice", text=f"Opened {root} with {model} in {mode} mode.")
         return session
@@ -728,6 +732,10 @@ class CodeManager:
         session = self.get(sid)
         if "mode" in body:
             session.set_mode(str(body["mode"]))
+        if "run_commands" in body and bool(body["run_commands"]) != session.run_commands:
+            session.run_commands = bool(body["run_commands"])
+            session.commit("notice", text="Auto mode will run commands without asking in this tab."
+                           if session.run_commands else "Auto mode will ask before running commands in this tab.")
         if "title" in body and str(body["title"]).strip():
             session.title = str(body["title"]).strip()
         if "model" in body and str(body["model"]).strip() and str(body["model"]).strip() != session.model:

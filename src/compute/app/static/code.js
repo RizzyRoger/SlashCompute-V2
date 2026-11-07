@@ -258,6 +258,7 @@ const renderControls = (tab) => {
   $('code-title').textContent = s.title || tab.meta.title
   $('code-root').textContent = tab.meta.root
   $('code-mode').querySelectorAll('input').forEach((input) => { input.checked = input.value === s.mode })
+  $('code-run-commands').checked = Boolean(s.run_commands)
   const form = $('code-settings-form')
   ensureOption(form.elements.model, s.model)
   if (document.activeElement !== form.elements.budget_pflops) {
@@ -376,6 +377,15 @@ const changeMode = async (event) => {
   ui.say(`Mode is now ${MODE_NAMES[event.target.value]}.`)
 }
 
+const changeRunCommands = async (event) => {
+  const tab = activeTab()
+  if (!tab) return
+  await api.update(tab.meta.id, { run_commands: event.target.checked })
+  await sync(tab)
+  ui.say(event.target.checked ? 'Auto will run commands without asking in this tab.'
+    : 'Auto will ask before running commands in this tab.')
+}
+
 const updateSettings = async (event) => {
   const tab = activeTab()
   if (!tab) return
@@ -489,6 +499,7 @@ export const initCode = ({ say, guarded }) => {
   ui.say = say
   $('code-new-form').addEventListener('submit', guarded(openTab))
   $('code-mode').addEventListener('change', guarded(changeMode))
+  $('code-run-commands').addEventListener('change', guarded(changeRunCommands))
   $('code-settings-form').addEventListener('submit', guarded(updateSettings))
   $('code-form').addEventListener('submit', guarded(send))
   $('code-approval-form').addEventListener('submit', guarded(answerApproval))

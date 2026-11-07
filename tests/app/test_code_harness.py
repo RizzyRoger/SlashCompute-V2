@@ -156,9 +156,20 @@ async def test_auto_mode_asks_for_powerful_commands(project, store):
     assert (project / "app.py").exists()
 
 
-async def test_auto_mode_runs_normal_commands(project, store):
+async def test_auto_mode_asks_before_running_programs_by_default(project, store):
     llm = ScriptedLlm([tool("run_command", command="echo hello > out.txt && cat out.txt"), "Wrote out.txt."])
     session = make_session(store, project, llm, AUTO)
+    session.start("write a file")
+    pending = await answer(session, approve=False)
+    await session.task
+    assert pending["tool"] == "run_command" and "unless this tab allows it" in pending["reason"]
+    assert not (project / "out.txt").exists() and tools(session)[0]["status"] == "rejected"
+
+
+async def test_auto_mode_runs_normal_commands_when_the_tab_allows_it(project, store):
+    llm = ScriptedLlm([tool("run_command", command="echo hello > out.txt && cat out.txt"), "Wrote out.txt."])
+    session = make_session(store, project, llm, AUTO)
+    session.run_commands = True
     await run_turn(session, "write a file")
     assert (project / "out.txt").read_text() == "hello\n"
     result = tools(session)[0]

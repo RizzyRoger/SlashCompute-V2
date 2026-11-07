@@ -7,11 +7,14 @@
 | write_file, edit_file        | deny  | ask    | allow (ask for secrets files) |
 | delete_file                  | deny  | ask    | ask   |
 | run_command: read-only       | allow | ask    | allow |
-| run_command: normal          | deny  | ask    | allow |
+| run_command: normal          | deny  | ask    | ask (allow if the tab opted in: run_commands) |
 | run_command: powerful        | deny  | ask    | ask   |
 | propose_plan                 | allow | deny   | deny  |
 
 Paths outside the project folder and writes inside ``.git`` are refused in every mode.
+
+The model's replies are generated on other people's computers in the pool, so Auto mode only runs
+programs (normal commands) without asking when the user turned that on for the tab.
 """
 
 from __future__ import annotations
@@ -19,7 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from compute.app.code.commands import POWERFUL, READ_ONLY, classify
+from compute.app.code.commands import NORMAL, POWERFUL, READ_ONLY, classify
 from compute.app.code.workspace import Workspace, WorkspaceError, in_git_dir, is_sensitive
 
 PLAN, AUTO, MANUAL = "plan", "auto", "manual"
@@ -60,7 +63,7 @@ def decide_edit(mode: str, name: str, args: dict, ws: Workspace) -> Decision:
     return Decision(ALLOW, "auto mode applies edits")
 
 
-def decide_command(mode: str, args: dict, ws: Workspace) -> Decision:
+def decide_command(mode: str, args: dict, ws: Workspace, run_commands: bool = False) -> Decision:
     command = (args.get("command") or "").strip()
     if not command:
         return Decision(DENY, "run_command needs a <command>")
@@ -73,10 +76,13 @@ def decide_command(mode: str, args: dict, ws: Workspace) -> Decision:
         return Decision(ASK, f"manual mode: every command needs your approval ({risk.reason})", risk.level)
     if risk.level == POWERFUL:
         return Decision(ASK, f"powerful command: {risk.reason}", risk.level)
+    if risk.level == NORMAL and not run_commands:
+        return Decision(ASK, f"auto mode asks before running programs unless this tab allows it ({risk.reason})",
+                        risk.level)
     return Decision(ALLOW, risk.reason, risk.level)
 
 
-def decide(mode: str, name: str, args: dict, ws: Workspace) -> Decision:
+def decide(mode: str, name: str, args: dict, ws: Workspace, run_commands: bool = False) -> Decision:
     if mode not in MODES:
         return Decision(DENY, f"unknown mode {mode!r}")
     if name not in TOOLS:
@@ -90,6 +96,6 @@ def decide(mode: str, name: str, args: dict, ws: Workspace) -> Decision:
             return decide_read(name, args, ws)
         if name in EDIT_TOOLS:
             return decide_edit(mode, name, args, ws)
-        return decide_command(mode, args, ws)
+        return decide_command(mode, args, ws, run_commands)
     except WorkspaceError as e:
         return Decision(DENY, str(e))

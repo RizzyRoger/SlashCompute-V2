@@ -174,6 +174,20 @@ def test_code_api_refuses_other_websites(tmp_path: Path, project: Path):
         assert client.get("/api/code/sessions", headers={"host": "evil.example:8766"}).status_code == 403
 
 
+def test_run_commands_opt_in_is_saved_per_tab(tmp_path: Path, project: Path):
+    with shell_for(tmp_path, FakePool([])) as client:
+        meta = client.post("/api/code/sessions", json={"root": str(project), "model": "m", "mode": "auto"}).json()
+        assert meta["run_commands"] is False
+        sid = meta["id"]
+        assert client.patch(f"/api/code/sessions/{sid}", json={"run_commands": True}).json()["run_commands"] is True
+        snap = client.get(f"/api/code/sessions/{sid}").json()
+        assert snap["run_commands"] is True
+        assert snap["entries"][-1]["text"] == "Auto mode will run commands without asking in this tab."
+        opted = client.post("/api/code/sessions", json={"root": str(project), "model": "m", "mode": "auto",
+                                                         "run_commands": True}).json()
+        assert opted["run_commands"] is True
+
+
 def test_undo_endpoint(tmp_path: Path, project: Path):
     pool = FakePool([FIX_ADD, "Fixed."])
     with shell_for(tmp_path, pool) as client:

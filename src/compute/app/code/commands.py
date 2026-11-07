@@ -20,6 +20,8 @@ from typing import Mapping, Optional
 
 import psutil
 
+from compute.app.code.workspace import is_sensitive
+
 READ_ONLY, NORMAL, POWERFUL = "read_only", "normal", "powerful"
 RANK = {READ_ONLY: 0, NORMAL: 1, POWERFUL: 2}
 COMMAND_TIMEOUT_S = 120.0
@@ -37,7 +39,7 @@ READ_ONLY_NAMES = frozenset({
     "echo", "printf", "which", "whereis", "file", "stat", "du", "tree", "diff", "cmp", "sort", "uniq",
     "cut", "tr", "basename", "dirname", "realpath", "readlink", "date", "true", "false", "less", "more",
     "column", "nl", "md5", "md5sum", "shasum", "sha256sum", "whoami", "uname", "jq", "cd", "pushd",
-    "popd", "test", "[", "sleep", "printenv",
+    "popd", "test", "[", "sleep",
     # Windows (cmd)
     "dir", "type", "findstr", "where",
 })
@@ -74,6 +76,16 @@ PACKAGE_CHANGES = frozenset({"install", "i", "add", "remove", "rm", "uninstall",
 RUNNERS = frozenset({"uv", "poetry", "pdm", "pipenv", "bundle", "conda", "mamba"})
 GIT_READ = frozenset({"status", "diff", "log", "show", "blame", "ls-files", "rev-parse", "describe",
                       "shortlog", "grep", "cat-file", "ls-tree", "reflog", "whatchanged", "version", "help"})
+# Options that make an otherwise read-only program start another program.
+EXEC_OPTIONS = {
+    "rg": ("--pre", "--hostname-bin"),
+    "fd": ("-x", "--exec", "-X", "--exec-batch"),
+    "sort": ("--compress-program",),
+    "ag": ("--pager",),
+}
+# git global options that can make any git command run an arbitrary program.
+GIT_EXEC_OPTIONS = ("-c", "--config-env", "--exec-path")
+GIT_NETWORK = frozenset({"fetch", "pull", "clone", "ls-remote", "archive"})
 GIT_POWERFUL = frozenset({"push", "clean", "rebase", "filter-branch", "filter-repo", "rm", "restore",
                           "update-ref", "gc", "prune", "replace", "lfs"})
 FIND_POWERFUL = frozenset({"-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint", "-fprint0", "-fprintf", "-fls"})
@@ -194,9 +206,35 @@ def first_sub(argv: list[str], skip_with_value: frozenset[str] = frozenset()) ->
     return "", []
 
 
+def has_option(args: list[str], options: tuple[str, ...]) -> Optional[str]:
+    """The first of ``options`` present in ``args`` (as ``--opt`` or ``--opt=value``), else None."""
+    for a in args:
+        for o in options:
+            if a == o or a.startswith(o + "="):
+                return o
+    return None
+
+
+def git_global_options(argv: list[str]) -> list[str]:
+    """The options between ``git`` and its subcommand (``-c key=value`` counts as two words)."""
+    out, i = [], 1
+    while i < len(argv) and argv[i].startswith("-"):
+        takes_value = argv[i] in ("-C", "-c", "--git-dir", "--work-tree", "--config-env", "--exec-path")
+        out += argv[i:i + 2] if takes_value else argv[i:i + 1]
+        i += 2 if takes_value else 1
+    return out
+
+
 def git_risk(argv: list[str]) -> Risk:
-    sub, rest = first_sub(argv, frozenset({"-C", "-c", "--git-dir", "--work-tree"}))
+    if opt := has_option(git_global_options(argv), GIT_EXEC_OPTIONS):
+        return Risk(POWERFUL, f"git {opt} can make git run any program")
+    sub, rest = first_sub(argv, frozenset({"-C", "-c", "--git-dir", "--work-tree", "--config-env",
+                                          "--exec-path"}))
     flags = set(rest)
+    if sub in GIT_NETWORK:
+        return Risk(POWERFUL, f"git {sub} uses the network")
+    if sub == "grep" and (has_option(rest, ("--open-files-in-pager",)) or any(a.startswith("-O") for a in rest)):
+        return Risk(POWERFUL, "git grep -O opens files in another program")
     if sub in GIT_POWERFUL:
         return Risk(POWERFUL, f"git {sub} can lose work or publish it")
     if sub == "reset" and ("--hard" in flags or "--merge" in flags or "--keep" in flags):
@@ -245,11 +283,15 @@ def program_name(word: str) -> str:
 
 def command_risk(words: list[str], piped: bool, root: Path) -> Risk:
     argv, writes, reads = strip_redirects(words)
+    risks = []
+    if argv and ASSIGNMENT.match(argv[0]):
+        risks.append(Risk(POWERFUL, "sets environment variables for the command (they can change what it runs)"))
     while argv and ASSIGNMENT.match(argv[0]):
         argv = argv[1:]
     while argv and program_name(argv[0]) == "time":
         argv = argv[1:]
-    risks = []
+    if any(is_sensitive(Path(w)) for w in argv[1:] + writes + reads if w and not w.startswith("-")):
+        risks.append(Risk(POWERFUL, "touches a file that may hold secrets (its text would be sent to the pool)"))
     if words_outside(argv[1:] + writes + reads, root):
         risks.append(Risk(POWERFUL, "uses a path outside the project folder"))
     if any(t not in SAFE_TARGETS for t in writes):
@@ -259,10 +301,13 @@ def command_risk(words: list[str], piped: bool, root: Path) -> Risk:
     name = program_name(argv[0])
     args = argv[1:]
     lowered = {a.lower() for a in args}
-    if name == "env" and not args:
-        risks.append(Risk(READ_ONLY, "prints the environment"))
+    if name == "printenv" or (name == "env" and not args):
+        risks.append(Risk(POWERFUL, f"{name} prints environment variables, which may hold secrets "
+                                    "(the output is sent to the pool)"))
     elif name in POWERFUL_NAMES:
         risks.append(Risk(POWERFUL, f"{name} {POWERFUL_NAMES[name]}"))
+    elif name in EXEC_OPTIONS and (opt := has_option(args, EXEC_OPTIONS[name])):
+        risks.append(Risk(POWERFUL, f"{name} {opt} runs another program"))
     elif name in INTERPRETERS and piped:
         risks.append(Risk(POWERFUL, f"pipes text into {name} to run it"))
     elif name in INTERPRETERS and lowered & INLINE_CODE_FLAGS:

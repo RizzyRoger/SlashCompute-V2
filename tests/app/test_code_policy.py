@@ -41,7 +41,7 @@ MATRIX = [
     (SECRET_EDIT,   DENY,  ASK,   ASK),
     (DELETE,        DENY,  ASK,   ASK),
     (CMD_READ,      ALLOW, ASK,   ALLOW),
-    (CMD_NORMAL,    DENY,  ASK,   ALLOW),
+    (CMD_NORMAL,    DENY,  ASK,   ASK),
     (CMD_POWERFUL,  DENY,  ASK,   ASK),
     (PLAN_CALL,     ALLOW, DENY,  DENY),
 ]
@@ -68,6 +68,24 @@ def test_unknown_tool_mode_and_empty_command(ws: Workspace):
     assert decide(AUTO, "format_disk", {}, ws).action == DENY
     assert decide("yolo", "read_file", {"path": "app.py"}, ws).action == DENY
     assert decide(AUTO, "run_command", {"command": "  "}, ws).action == DENY
+
+
+def test_auto_runs_programs_only_when_the_tab_opts_in(ws: Workspace):
+    name, args = CMD_NORMAL
+    asked = decide(AUTO, name, args, ws)
+    assert asked.action == ASK and "unless this tab allows it" in asked.reason
+    assert decide(AUTO, name, args, ws, run_commands=True).action == ALLOW
+    assert decide(AUTO, *CMD_READ, ws).action == ALLOW
+    assert decide(AUTO, *CMD_POWERFUL, ws, run_commands=True).action == ASK
+    assert decide(PLAN, name, args, ws, run_commands=True).action == DENY
+    assert decide(MANUAL, name, args, ws, run_commands=True).action == ASK
+
+
+@pytest.mark.parametrize("command", ["rg --pre bash x", 'git -c core.fsmonitor="touch p" status',
+                                     "GIT_EXTERNAL_DIFF=./x.sh git diff", "printenv", "cat .env"])
+def test_plan_mode_refuses_commands_that_only_look_read_only(ws: Workspace, command: str):
+    assert decide(PLAN, "run_command", {"command": command}, ws).action == DENY
+    assert decide(AUTO, "run_command", {"command": command}, ws, run_commands=True).action == ASK
 
 
 def test_command_decisions_carry_the_risk(ws: Workspace):
