@@ -16,6 +16,7 @@
       <a href="#account">Account</a>
       <a href="#contribute">Contribute</a>
       <a href="#chat">Chat</a>
+      <a href="#code">Code</a>
       <a href="#wallet">Wallet</a>
       <a href="#leaderboard">Leaderboard</a>
     </nav>
@@ -130,6 +131,92 @@
           <p>Files you attach are sent to other people's computers in the pool to answer your message.</p>
           <button value="cancel">Cancel</button>
           <button value="ok">Send anyway</button>
+        </form>
+      </dialog>
+    </section>
+
+    <!-- Code -->
+    <section id="code">
+      <h2>Code</h2>
+      <p>A pool model reads and edits files in a folder you choose. What it reads, and the output of
+        commands it runs, is sent to other people's computers in the pool.</p>
+      <div id="code-tabs" role="tablist" aria-label="Code tabs"></div>
+      <details id="code-new" open>
+        <summary>New tab</summary>
+        <form id="code-new-form">
+          <label>Project folder <input name="root" placeholder="/Users/me/project" required></label>
+          <label>Model <select name="model" id="code-model"></select></label>
+          <label>Mode
+            <select name="mode">
+              <option value="plan">Plan</option>
+              <option value="manual">Manual</option>
+              <option value="auto">Auto</option>
+            </select>
+          </label>
+          <label>Budget (PFLOPs, 0 = no cap) <input name="budget_pflops" type="number" min="0" step="any" value="0"></label>
+          <button type="submit">Open tab</button>
+        </form>
+      </details>
+
+      <div id="code-panel" role="tabpanel" hidden>
+        <p><strong id="code-title"></strong> in <code id="code-root"></code></p>
+        <fieldset id="code-mode">
+          <legend>Permission mode</legend>
+          <label><input type="radio" name="code-mode" value="plan"> Plan: explores read-only, then proposes a plan for you to approve</label>
+          <label><input type="radio" name="code-mode" value="manual"> Manual: asks before every file change and every command</label>
+          <label><input type="radio" name="code-mode" value="auto"> Auto: edits and runs commands itself; asks for deletions and powerful commands</label>
+        </fieldset>
+        <form id="code-settings-form">
+          <label>Model <select name="model" id="code-tab-model"></select></label>
+          <label>Budget (PFLOPs, 0 = no cap) <input name="budget_pflops" type="number" min="0" step="any"></label>
+          <button type="submit">Update</button>
+        </form>
+        <p id="code-status" role="status" aria-live="polite"></p>
+        <details id="code-checkpoints" hidden>
+          <summary>File checkpoints</summary>
+          <p><small>Undo puts the files the assistant edited back the way they were before that message,
+            along with every change after it. Changes made by commands aren't tracked.</small></p>
+          <ol id="code-checkpoint-list"></ol>
+        </details>
+        <ol id="code-log"></ol>
+
+        <div id="code-approval" hidden>
+          <h3>Approval needed</h3>
+          <p id="code-approval-what"></p>
+          <p><small id="code-approval-why"></small></p>
+          <pre id="code-approval-diff" class="code-diff"></pre>
+          <form id="code-approval-form">
+            <label>Note for the assistant (optional) <input name="note"></label>
+            <button type="submit" value="approve">Approve</button>
+            <button type="submit" value="reject">Reject</button>
+          </form>
+        </div>
+
+        <div id="code-plan" hidden>
+          <h3>Proposed plan</h3>
+          <pre id="code-plan-text"></pre>
+          <form id="code-plan-form">
+            <label>Note (optional) <input name="note"></label>
+            <button type="submit" value="auto">Approve, run in Auto</button>
+            <button type="submit" value="manual">Approve, review each step (Manual)</button>
+            <button type="submit" value="revise">Keep planning</button>
+          </form>
+        </div>
+
+        <form id="code-form">
+          <label>Message <textarea name="text" rows="3" placeholder="Describe the change you want (Cmd/Ctrl+Enter sends)"></textarea></label>
+          <button type="submit" id="code-send">Send</button>
+          <button type="button" id="code-stop" hidden>Stop</button>
+          <button type="button" id="code-close">Close tab</button>
+        </form>
+      </div>
+
+      <dialog id="code-notice">
+        <form method="dialog">
+          <p>Files the assistant reads, and the output of commands it runs, are sent to other people's
+            computers in the pool. Don't open folders with secrets you can't share.</p>
+          <button value="cancel">Cancel</button>
+          <button value="ok">Open tab</button>
         </form>
       </dialog>
     </section>

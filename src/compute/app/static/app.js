@@ -1,4 +1,6 @@
 import { attachFile, server, shell, streamChat } from './api.js'
+import { initCode, setCodeModels } from './code.js'
+import { formatFlops } from './format.js'
 
 // ---------------------------------------------------------------- shared
 
@@ -33,13 +35,6 @@ const guarded = (fn) => async (event) => {
   } catch (err) {
     fail(err)
   }
-}
-
-const formatFlops = (n) => {
-  if (n === null || n === undefined) return '-'
-  const units = [[1e18, 'EFLOPs'], [1e15, 'PFLOPs'], [1e12, 'TFLOPs'], [1e9, 'GFLOPs']]
-  const match = units.find(([size]) => Math.abs(n) >= size)
-  return match ? `${(n / match[0]).toFixed(3)} ${match[1]}` : `${Math.round(n)} FLOPs`
 }
 
 const formatTime = (ts) => {
@@ -310,6 +305,7 @@ const loadModels = async () => {
     return option
   }))
   if (data.some((m) => m.id === current)) select.value = current
+  setCodeModels(data)
 }
 
 const resetSession = () => {
@@ -548,6 +544,7 @@ const start = async () => {
   initChat()
   initWallet()
   initBoard()
+  initCode({ say, guarded })
   await pollStatus().catch(fail)
   setInterval(() => pollStatus().catch(() => {}), STATUS_POLL_MS)
   if (!state.settings || !state.settings.server_url) return

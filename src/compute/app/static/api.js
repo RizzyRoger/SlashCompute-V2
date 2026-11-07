@@ -41,6 +41,8 @@ const request = async (path, { method = 'GET', body } = {}) => {
 export const shell = {
   get: (path) => request(`/api/${path}`),
   post: (path, body = {}) => request(`/api/${path}`, { method: 'POST', body }),
+  patch: (path, body = {}) => request(`/api/${path}`, { method: 'PATCH', body }),
+  del: (path) => request(`/api/${path}`, { method: 'DELETE' }),
 }
 
 // The main server, through the shell's proxy.
@@ -88,6 +90,18 @@ const readEvents = async (res, onEvent) => {
       if (event) onEvent(event)
     }
   }
+}
+
+// GET an SSE endpoint of the shell (a Code tab's events) and call onEvent(json) until it ends.
+export const streamEvents = async (path, onEvent, signal) => {
+  const res = await fetch(path, { headers: { accept: 'text/event-stream' }, signal })
+  if (!res.ok) {
+    const data = await parseBody(res)
+    const err = new Error(errorText(data, res))
+    err.status = res.status
+    throw err
+  }
+  await readEvents(res, onEvent)
 }
 
 // POST /api/chat and stream events: queued, chunks, the final usage event, errors.

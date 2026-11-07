@@ -66,6 +66,64 @@ td {
   white-space: pre-wrap;
 }
 
+/* Code tabs */
+
+#code-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+#code-tabs [aria-selected="true"] {
+  font-weight: bold;
+}
+
+#code-mode label {
+  flex-direction: row;
+  align-items: center;
+}
+
+#code-log {
+  max-height: 36rem;
+  overflow: auto;
+}
+
+#code-log li {
+  margin: 0.4rem 0;
+}
+
+#code-log li span,
+#code-log li em {
+  white-space: pre-wrap;
+}
+
+#code-form label:first-child {
+  flex: 1 1 100%;
+}
+
+#code-approval,
+#code-plan {
+  border: 2px solid currentColor;
+  padding: 0 0.75rem;
+}
+
+.code-diff span {
+  display: block;
+}
+
+.diff-add {
+  background: #e6ffec;
+}
+
+.diff-del {
+  background: #ffebe9;
+}
+
+.diff-hunk,
+.diff-file {
+  color: #57606a;
+}
+
 [hidden] {
   display: none !important;
 }

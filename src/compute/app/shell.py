@@ -13,12 +13,14 @@ from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTask
 
 from compute.app.attachments import AttachmentError, extract, max_bytes_for
+from compute.app.code.harness import CodeManager
+from compute.app.code.routes import code_router
 from compute.app.controller import Controller, ControllerError
 from compute.app.resources import static_dir
 
 SHELL_HOST = "127.0.0.1"
 SHELL_PORT = int(os.environ.get("COMPUTE_SHELL_PORT", "8766"))
-SHELL_GENERATION = 7
+SHELL_GENERATION = 8
 # Forming a pipeline (loading weights over RPC) can take minutes before the first token.
 STREAM_TIMEOUT = httpx.Timeout(None, connect=5.0)
 PROXY_TIMEOUT = httpx.Timeout(60.0, connect=5.0)
@@ -192,6 +194,11 @@ def create_shell(controller: Optional[Controller] = None,
             return extract(name, data)
         except AttachmentError as e:
             return error(e.status, e.message)
+
+    # ------------------------------------------------------------- code tabs
+
+    app.state.code = CodeManager(ctl.home, ctl.load_settings, http)
+    app.include_router(code_router(app.state.code))
 
     app.mount("/static", StaticFiles(directory=static_dir(), check_dir=False), name="static")
     return app
