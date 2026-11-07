@@ -40,3 +40,20 @@ Plan: ~/.claude/plans/okay-can-you-add-jiggly-dragonfly.md · Contract: docs/API
 - [x] Tests: workspace, commands, policy matrix, harness loop, routes (scripted model + MockTransport)
 - [x] Browser check against a scripted pool; real run on a local pool with gemma-4-12B
 - [ ] Windows: command classification covers cmd names, but the runner hasn't run on real Windows
+
+# Landing-page restyle (app + admin)
+
+Plan: ~/.claude/plans/https-midnight-mac-showcase-lovable-app-tranquil-flurry.md · Design source: github.com/revantashokraj-cmyk/midnight-mac-showcase (`public/reference/restyled-native-app.html`, commit 5c7f056)
+
+- [x] `static/app.css`: the design team's stylesheet verbatim (it targets our `index.html` as of `ff5b730`), texture served from `/static`, plus dark rules for the folder picker and the Code folder field, which landed after their snapshot
+- [x] Bundled fonts: Space Grotesk + JetBrains Mono variable woff2 (latin + latin-ext, OFL 1.1, licences in `fonts/`) from `@fontsource-variable/*@5.3.0`; works offline
+- [x] Admin: inline styles moved to `server/admin/admin.css` in the same design (stat tiles for the overview, sideways-scrolling tables); own copy of fonts and texture because `/admin/static` only serves `server/admin/`
+- [x] No HTML/JS/Python changes apart from the admin `<link>`; `SHELL_GENERATION` unchanged
+- [x] Tests: 383 passed
+- [x] Browser check on a scratch pool (own `COMPUTE_HOME`, ports 8775/8776): every app section signed in, the in-app folder picker, admin sign-in, overview, tables and upload form, at 1024 px and 600 px; fonts load and no console errors
+- [ ] Not seen inside the pywebview window or a rebuilt `.dmg`/Windows build
+
+## Review
+
+- The marketing website stays in the Lovable repo. Its copy still says file editing isn't available yet, which Code tabs have since changed.
+- When markup changes, add matching rules to `app.css` / `admin.css` in the same style instead of new light-theme rules.
