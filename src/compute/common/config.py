@@ -7,7 +7,8 @@ import sys
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 
-MDNS_SERVICE_TYPE = "_compute._tcp.local."
+# Override (e.g. ``_compute-test._tcp.local.``) to keep a test pool apart from everyone else's on the LAN.
+MDNS_SERVICE_TYPE = os.environ.get("COMPUTE_MDNS_TYPE") or "_compute._tcp.local."
 
 
 def admin_email() -> str:

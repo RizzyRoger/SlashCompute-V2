@@ -29,7 +29,7 @@ The builds are **not code-signed yet**, so your computer will warn you the first
 
 ## First run
 
-1. **Connect**: click *Find on this network* to discover a pool on your LAN, or type the server address you were given (for example `192.168.1.10:8765`).
+1. **Connect**: nothing to do on a local network. The app finds the main server over mDNS and joins its pool by itself, and follows it if its address changes (for example when the host switches Wi-Fi), so everyone on the network is in the same pool. If the network has more than one main server, every app picks the one that started first, and the app won't start a second one. For a server off your network, type the address you were given (for example `192.168.1.10:8765`). That turns auto-join off until you click *Join this network's pool*.
 2. **Account**: register (or sign in), then read and accept the DRAFT terms.
 3. **Contribute** (optional): pick how much memory to lend, add the folders where you keep `.gguf` models, and click *Start contributing*.
    - The first time you contribute, the app **downloads llama.cpp** for your platform (tens of MB) into its data folder. This takes a minute; later starts are quick.

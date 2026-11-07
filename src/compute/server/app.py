@@ -114,14 +114,23 @@ class NodeRegistrationGuard:
         return None
 
 
-def _advertise(port: int):
+async def _advertise(port: int):
     try:
         from compute.common.discovery import Advertiser
 
-        return Advertiser(port)
+        adv = Advertiser(port, version=VERSION)
+        await adv.start()
+        return adv
     except Exception as e:  # noqa: BLE001 - discovery is best-effort
-        log.warning("mDNS advertising unavailable: %s", e)
+        log.warning("mDNS advertising unavailable: %r", e)
         return None
+
+
+async def _stop_advertising(adv) -> None:
+    try:
+        await adv.close()
+    except Exception as e:  # noqa: BLE001 - shutting down anyway
+        log.warning("mDNS goodbye failed: %r", e)
 
 
 def create_app(cfg: EngineConfig, settings: Optional[InferenceSettings] = None, advertise: bool = False) -> FastAPI:
@@ -130,12 +139,12 @@ def create_app(cfg: EngineConfig, settings: Optional[InferenceSettings] = None, 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         sv.svc.start()
-        adv = _advertise(cfg.coordinator_port) if advertise else None
+        adv = await _advertise(cfg.coordinator_port) if advertise else None
         try:
             yield
         finally:
             if adv is not None:
-                adv.close()
+                await _stop_advertising(adv)
             await sv.svc.stop()
             sv.db.close()
 

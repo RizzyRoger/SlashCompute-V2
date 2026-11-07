@@ -4,6 +4,7 @@ import json
 
 import httpx
 
+from compute.common.discovery import LanServer
 from app_fakes import sse
 
 
@@ -113,6 +114,23 @@ def test_settings_endpoints(make_client):
     assert client.get("/api/settings").json()["models_dirs"] == ["/x"]
     status = client.get("/api/status").json()
     assert set(status) >= {"server", "node", "settings"}
+
+
+def test_status_joins_this_networks_pool(make_client, make_controller):
+    pool = LanServer("http://10.0.0.3:8765", "compute-pool", 100.0)
+    client, _ = make_client(lambda _r: httpx.Response(200), make_controller(lan=[pool]))
+    status = client.get("/api/status").json()
+    assert status["settings"]["server_url"] == pool.url
+    assert status["server"]["auto_join"] is True
+    assert client.post("/api/discover").json() == {"url": pool.url}
+
+
+def test_typed_address_stays_across_polls(make_client, make_controller):
+    pool = LanServer("http://10.0.0.3:8765", "compute-pool", 100.0)
+    client, _ = make_client(lambda _r: httpx.Response(200), make_controller(lan=[pool]))
+    client.post("/api/settings", json={"server_url": "203.0.113.7:8765", "auto_join": False})
+    for _ in range(2):
+        assert client.get("/api/status").json()["settings"]["server_url"] == "http://203.0.113.7:8765"
 
 
 def test_server_start_error_is_400(make_client):

@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -19,9 +20,11 @@ import psutil
 
 from compute.cli import self_command
 from compute.common.config import EngineConfig, default_home
-from compute.common.discovery import discover, lan_ip
+from compute.common.discovery import LanBrowser, LanServer, choose_pool, lan_ip
 
 SERVER_START_WAIT_S = 20.0
+DISCOVER_WAIT_S = 5.0
+DISCOVER_POLL_S = 0.2
 NODE_EARLY_EXIT_WAIT_S = 1.5
 LOG_TAIL_CHARS = 1500
 CREATE_NEW_PROCESS_GROUP = 0x00000200
@@ -39,6 +42,8 @@ class AppSettings:
     models_dirs: list[str] = field(default_factory=list)
     contribute: bool = False
     session_token: str = ""
+    # Follow this network's pool (mDNS). Typing an address turns it off; "Join this network's pool" back on.
+    auto_join: bool = True
 
     @classmethod
     def from_dict(cls, raw: Any) -> "AppSettings":
@@ -51,6 +56,7 @@ class AppSettings:
             models_dirs=clean_dirs(dirs if isinstance(dirs, list) else []),
             contribute=bool(raw.get("contribute", False)),
             session_token=str(raw.get("session_token") or "").strip(),
+            auto_join=bool(raw.get("auto_join", True)),
         )
 
 
@@ -151,7 +157,7 @@ class Controller:
         popen: Callable[..., Any] = subprocess.Popen,
         run: Callable[..., Any] = subprocess.run,
         http: Optional[httpx.Client] = None,
-        discover_fn: Callable[[float], Optional[str]] = discover,
+        lan_servers_fn: Optional[Callable[[], list[LanServer]]] = None,
         lan_ip_fn: Callable[[], str] = lan_ip,
         server_wait_s: float = SERVER_START_WAIT_S,
         node_wait_s: float = NODE_EARLY_EXIT_WAIT_S,
@@ -162,7 +168,10 @@ class Controller:
         self._popen = popen
         self._run = run
         self._http = http or httpx.Client(timeout=2.0)
-        self._discover = discover_fn
+        self._lan_servers_fn = lan_servers_fn
+        self._browser: Optional[LanBrowser] = None
+        self._follow_lock = threading.Lock()
+        self._node_moving = False   # a node is draining to restart on the current pool
         self._lan_ip = lan_ip_fn
         self._server_wait_s = server_wait_s
         self._node_wait_s = node_wait_s
@@ -282,12 +291,16 @@ class Controller:
             raise ControllerError("Enter the admin email and password.")
         if self.server_pid() is not None:
             return self.status()
+        other = choose_pool(s for s in self.lan_servers() if s.url != self.lan_server_url())
+        if other is not None:
+            raise ControllerError(f"This network already has a pool at {other.url}. "
+                                  "Everyone on a network shares one pool, so join it instead.")
         proc = self._spawn(self.server_argv(email), "server.log",
                            {"COMPUTE_ADMIN_PASSWORD": password})
         self._server_proc = proc
         self.server_pid_path.write_text(f"{proc.pid}\n")
         self._wait_for_server(proc)
-        self.update_settings({"server_url": self.lan_server_url()})
+        self.update_settings({"server_url": self.lan_server_url(), "auto_join": True})
         return self.status()
 
     def _wait_for_server(self, proc: Any) -> None:
@@ -361,6 +374,7 @@ class Controller:
             time.sleep(0.1)
 
     def stop_node(self) -> dict:
+        self._node_moving = False
         self.update_settings({"contribute": False})
         if self.node_pid() is None:
             return self.status()
@@ -370,6 +384,17 @@ class Controller:
         except (OSError, subprocess.SubprocessError) as e:
             raise ControllerError(f"Could not stop the node: {e}") from e
         return self.status()
+
+    def node_url(self) -> Optional[str]:
+        """The server address the running node was started with (its ``--url``), if it can be read."""
+        pid = self.node_pid()
+        if pid is None:
+            return None
+        try:
+            argv = psutil.Process(pid).cmdline()
+        except psutil.Error:
+            return None
+        return next((v for k, v in zip(argv, argv[1:]) if k == "--url"), None)
 
     def node_status(self) -> dict:
         pid = self.node_pid()
@@ -381,15 +406,67 @@ class Controller:
             data = {}
         return {"running": True, "pid": pid, "status": data if isinstance(data, dict) else {}}
 
-    # ----------------------------------------------------------------- status
+    # ------------------------------------------------------------- LAN pool
 
-    def discover(self, timeout: float = 5.0) -> Optional[str]:
-        found = self._discover(timeout)
-        if not found:
+    def lan_servers(self) -> list[LanServer]:
+        """Main servers advertised on the LAN right now. The mDNS browser starts on first use."""
+        if self._lan_servers_fn is None:
+            self._browser = LanBrowser()
+            self._lan_servers_fn = self._browser.servers
+        return self._lan_servers_fn()
+
+    def follow_pool(self) -> Optional[str]:
+        """Called on every status poll: join this network's pool (or follow it to a new address), and keep
+        the node contributing to the pool we're on. Returns the new server URL when it changed."""
+        if not self._follow_lock.acquire(blocking=False):
+            return None   # another poll is already on it
+        try:
+            changed = self._join_lan_pool()
+            self._keep_node_on_pool()
+            return changed
+        finally:
+            self._follow_lock.release()
+
+    def _join_lan_pool(self) -> Optional[str]:
+        """With auto-join on, every app picks the same server (``choose_pool``). Nothing found: keep ours."""
+        settings = self.load_settings()
+        pool = choose_pool(self.lan_servers()) if settings.auto_join else None
+        if pool is None or pool.url == settings.server_url:
             return None
-        url = normalize_url(found)
-        self.update_settings({"server_url": url})
-        return url
+        self.update_settings({"server_url": pool.url})
+        return pool.url
+
+    def _keep_node_on_pool(self) -> None:
+        """A node started for another address drains, then starts again on the current pool. ``node stop``
+        only asks it to leave, so the restart happens on a later poll, once it has exited."""
+        if self._node_moving:
+            if self.node_pid() is None:
+                self._node_moving = False
+                self._try_node(self.start_node, "start again")
+            return
+        node_url, current = self.node_url(), self.load_settings().server_url
+        if node_url and current and node_url != current and self._try_node(self.stop_node, "stop"):
+            self._node_moving = True
+
+    def _try_node(self, action: Callable[[], Any], what: str) -> bool:
+        try:
+            action()
+        except ControllerError as e:
+            self.last_error = f"Moving the node to {self.load_settings().server_url}: it didn't {what}. {e}"
+            return False
+        return True
+
+    def discover(self, timeout: float = DISCOVER_WAIT_S) -> Optional[str]:
+        """Turn auto-join back on and join this network's pool, waiting up to ``timeout`` to find it."""
+        self.update_settings({"auto_join": True})
+        deadline = time.monotonic() + timeout
+        while not self.lan_servers() and time.monotonic() < deadline:
+            time.sleep(DISCOVER_POLL_S)
+        self.follow_pool()
+        pool = choose_pool(self.lan_servers())
+        return pool.url if pool else None
+
+    # ----------------------------------------------------------------- status
 
     def status(self) -> dict:
         settings = self.load_settings()
@@ -404,6 +481,8 @@ class Controller:
                 "local_running": local_running,
                 "lan_url": self.lan_server_url() if local_running else "",
                 "health": health or {},
+                "auto_join": settings.auto_join,
+                "lan": [{"url": s.url, "name": s.name} for s in self.lan_servers()],
             },
             "node": self.node_status(),
             "settings": asdict(settings),

@@ -57,3 +57,20 @@ Plan: ~/.claude/plans/https-midnight-mac-showcase-lovable-app-tranquil-flurry.md
 
 - The marketing website stays in the Lovable repo. Its copy still says file editing isn't available yet, which Code tabs have since changed.
 - When markup changes, add matching rules to `app.css` / `admin.css` in the same style instead of new light-theme rules.
+
+# One pool per network (auto-join over mDNS)
+
+Plan: ~/.claude/plans/okay-on-the-main-atomic-flamingo.md · Builds on `1c232c6` (one section per tab, already on main) and #4
+
+- [x] `common/discovery.py`: `LanServer`, `choose_pool` (earliest `started`, then name), `LanBrowser` (long-lived mDNS browser), TXT `started`/`version`; `COMPUTE_MDNS_TYPE` override for test pools
+- [x] Server advert via AsyncZeroconf inside the server's loop (the blocking one raised `EventLoopBlocked` there, so no goodbye was ever sent), 120 s TTL, re-advertises when the host changes network
+- [x] App: `auto_join` setting (default on), `follow_pool()` on every `/api/status`, node drains and restarts on the current pool, app refuses to start a second server on the network, browser restarts on a network change; `SHELL_GENERATION` 10
+- [x] Connect tab: "Join this network's pool", "(this network's pool)" / "(set by hand)"; account, models and leaderboard reload once whenever the server changes
+- [x] Tests: 406 passed
+- [x] Real mDNS on this Mac (test service type, scratch homes, ports 8775/8785/8776): auto-join with no clicks; two servers → app stays on the earlier; stopping it → app moves at once; second server refused in the UI; typed address stays; rejoin works; the Mac changed networks mid-test, which is how the re-advertise gap was found; after the fix the app followed the server to its new address
+- [ ] Not seen: two physical machines, Windows (mDNS/firewall), the pywebview window or a rebuilt `.dmg`; a real node moving pools (unit-tested only)
+
+## Review
+
+- Everyone on the network needs this version for auto-join; older apps can still use the button (same service type), and older servers (no `started`) are still found, sorted last.
+- zeroconf logs a "No route to host" warning for interfaces it can't send on (VPN tunnel, hotspot); harmless.

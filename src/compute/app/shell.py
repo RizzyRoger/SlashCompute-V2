@@ -21,7 +21,7 @@ from compute.common.caching import REVALIDATE, RevalidatedStaticFiles
 
 SHELL_HOST = "127.0.0.1"
 SHELL_PORT = int(os.environ.get("COMPUTE_SHELL_PORT", "8766"))
-SHELL_GENERATION = 9
+SHELL_GENERATION = 10
 # Forming a pipeline (loading weights over RPC) can take minutes before the first token.
 STREAM_TIMEOUT = httpx.Timeout(None, connect=5.0)
 PROXY_TIMEOUT = httpx.Timeout(60.0, connect=5.0)
@@ -69,6 +69,8 @@ def create_shell(controller: Optional[Controller] = None,
                  client: Optional[httpx.AsyncClient] = None,
                  port: int = SHELL_PORT) -> FastAPI:
     ctl = controller or Controller()
+    if controller is None:
+        ctl.lan_servers()   # the real app: start browsing mDNS now, so the first status poll can join
     http = client or httpx.AsyncClient(timeout=PROXY_TIMEOUT)
     app = FastAPI(title="/compute app shell")
     app.state.controller = ctl
@@ -115,10 +117,13 @@ def create_shell(controller: Optional[Controller] = None,
 
     @app.get("/api/status")
     def status():
+        """The UI polls this every few seconds while the window is open: join this network's pool too."""
+        ctl.follow_pool()
         return ctl.status()
 
     @app.post("/api/discover")
     def discover():
+        """Join this network's pool (turns auto-join back on after a typed address)."""
         url = ctl.discover()
         if not url:
             raise HTTPException(404, "No main server found on this network.")
