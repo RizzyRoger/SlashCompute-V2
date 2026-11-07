@@ -1,0 +1,75 @@
+/* /compute admin stylesheet. CSS only: admin.js and the server API are unchanged.
+   Same design as the app (src/compute/app/static/app.css, from the landing page team's
+   midnight-mac-showcase restyle): same tokens, fonts, texture and controls, applied to the admin markup.
+   Files resolve relative to /admin/static/. */
+
+/* Space Grotesk and JetBrains Mono (variable, latin + latin-ext). SIL OFL 1.1: see fonts/OFL-*.txt. */
+@font-face {font-family:'Space Grotesk';font-style:normal;font-weight:300 700;font-display:swap;src:url('fonts/space-grotesk-latin-ext-wght-normal.woff2') format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
+@font-face {font-family:'Space Grotesk';font-style:normal;font-weight:300 700;font-display:swap;src:url('fonts/space-grotesk-latin-wght-normal.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+@font-face {font-family:'JetBrains Mono';font-style:normal;font-weight:100 800;font-display:swap;src:url('fonts/jetbrains-mono-latin-ext-wght-normal.woff2') format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
+@font-face {font-family:'JetBrains Mono';font-style:normal;font-weight:100 800;font-display:swap;src:url('fonts/jetbrains-mono-latin-wght-normal.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+
+:root {
+ --background: #0b0b0b; --foreground:#f4f4ee; --card:#191919;
+ --primary:#baff00; --primary-foreground:#101010; --muted-foreground:#aaa;
+ --red-detail:rgb(148,24,24); --line:#363636; --surface-highlight:#5b5b5b;
+ --surface-hover:color-mix(in srgb,var(--primary) 7%,var(--card));
+ --shadow-ink:#030303; --texture:url('graphite-grain.png');
+ --shadow-layered:3px 3px 0 var(--shadow-ink),6px 6px 0 var(--line);
+ --font-display:'Space Grotesk','Helvetica Neue',sans-serif;
+ --font-mono:'JetBrains Mono',Menlo,Consolas,monospace;
+}
+* {box-sizing:border-box;letter-spacing:0;}
+body {margin:0;background:var(--background);background-image:var(--texture);color:var(--foreground);font-family:var(--font-display);line-height:1.6;}
+
+/* Header: /compute admin, who is signed in, status line */
+body > header {position:sticky;top:0;z-index:20;background:var(--background);border-bottom:2px solid var(--foreground);padding:18px 32px;display:grid;grid-template-columns:1fr auto;gap:6px 20px;}
+header h1 {font-size:26px;margin:0;line-height:1.4;}
+header h1::first-letter {color:var(--primary);}
+#who {margin:0;align-self:center;color:var(--muted-foreground);font:11px var(--font-mono);}
+#message {grid-column:1/-1;color:var(--primary);font:11px/1.8 var(--font-mono);margin:0;}
+#message:empty {display:none;}
+
+/* Page */
+body > section,main {max-width:1400px;margin:auto;padding:12px 40px 60px;}
+body > section {padding-top:36px;}
+main > p:first-child {display:flex;gap:12px;justify-content:flex-end;margin:20px 0 0;}
+main > section {padding:36px 0 46px;border-bottom:1px solid var(--line);overflow-x:auto;}
+main > section:last-child {border-bottom:0;}
+h2 {font-size:36px;font-weight:700;line-height:1.2;margin:0 0 26px;}
+section h2 + table + h2 {margin-top:46px;}
+p {font-size:13px;line-height:1.85;}
+
+/* Forms and controls (same as the app) */
+form {display:flex;flex-wrap:wrap;align-items:end;gap:18px;margin:20px 0;}
+label {display:flex;flex-direction:column;gap:9px;font:11px/1.8 var(--font-mono);color:var(--muted-foreground);min-width:0;}
+input,select,textarea {border:1px solid var(--line);border-radius:0;background:var(--background);color:var(--foreground);font:13px/1.6 var(--font-mono);padding:11px 13px;min-width:0;max-width:100%;}
+input:not([type=radio]):not([type=checkbox]):not([type=range]):not([type=file]),select {min-width:220px;}
+input::placeholder {color:var(--muted-foreground);opacity:.7;}
+input[type=file] {padding:8px;font-size:11px;}
+button,input::file-selector-button {font:11px/1.5 var(--font-mono);text-transform:uppercase;letter-spacing:0;border:1px solid var(--foreground);border-radius:0;background:var(--background);color:var(--foreground);padding:11px 16px;cursor:pointer;transition:background 150ms ease,transform 150ms ease;}
+button[type=submit] {background:var(--primary);color:var(--primary-foreground);box-shadow:var(--shadow-layered);}
+button:hover,input::file-selector-button:hover {background:var(--surface-hover);color:var(--foreground);transform:translate(1px,-1px);}
+button:active {transform:translate(2px,2px);box-shadow:none;}
+button:disabled {opacity:.4;cursor:not-allowed;transform:none;}
+#logout {border-color:var(--red-detail);}
+:focus-visible {outline:2px solid var(--primary);outline-offset:4px;}
+progress {display:block;width:340px;max-width:100%;height:8px;accent-color:var(--primary);}
+
+/* Overview: one tile per figure (dt over dd, side by side) */
+#overview-list {display:grid;grid-template-rows:auto auto;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);column-gap:18px;margin:0;}
+#overview-list dt {background:var(--card);border:1px solid var(--surface-highlight);border-bottom:0;padding:16px 20px 0;color:var(--muted-foreground);font:11px/1.8 var(--font-mono);text-transform:uppercase;}
+#overview-list dd {margin:0;background:var(--card);border:1px solid var(--surface-highlight);border-top:0;padding:4px 20px 18px;color:var(--primary);font-size:28px;font-weight:500;line-height:1.3;overflow-wrap:anywhere;}
+
+/* Tables: natural column widths; the section scrolls sideways when a table is wider than the page */
+table {border-collapse:collapse;width:100%;}
+th,td {text-align:left;vertical-align:top;padding:14px 12px;border-bottom:1px solid var(--line);font:11px/1.8 var(--font-mono);overflow-wrap:break-word;}
+th {color:var(--muted-foreground);font-weight:400;text-transform:uppercase;white-space:nowrap;border-bottom-color:var(--foreground);}
+tbody tr:hover {background:var(--surface-hover);}
+td button {padding:5px 10px;margin:2px 6px 2px 0;}
+td > span {display:flex;flex-wrap:wrap;gap:6px;}
+td > span button {margin:0;}
+
+[hidden] {display:none!important;}
+@media(max-width:799px) {body > header {padding:16px 18px;}#overview-list {display:block;}#overview-list dd + dt {margin-top:14px;}body > section,main {padding:10px 22px 40px;}h2 {font-size:30px;}form label {flex:1 1 240px;}input:not([type=radio]):not([type=checkbox]):not([type=range]):not([type=file]) {min-width:0;width:100%;}}
+@media(prefers-reduced-motion:reduce) {*,*::before,*::after {animation:none!important;transition:none!important;scroll-behavior:auto!important;}}
