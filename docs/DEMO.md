@@ -11,7 +11,7 @@ The 27B model is 17.6 GB, so neither a 16 GB Mac nor a typical gaming GPU can ho
 
 ## 0. Before the demo
 - [ ] Both machines on the same Wi-Fi/LAN (Ethernet is better). Internet joining also works, via relay, but slowly.
-- [ ] Mac: `compute-mac.dmg` installed (right-click → Open the first time).
+- [ ] Mac: `compute-mac.dmg` installed (right-click → Open the first time), and **python3.13** allowed under System Settings → Privacy & Security → Local Network.
 - [ ] Windows: unzip `compute-windows.zip` and run `compute\compute.exe` (SmartScreen: More info → Run anyway). Allow it through Windows Firewall on **private** networks when asked.
 - [ ] Both machines: first launch downloads llama.cpp b12176 (Mac: Metal; Windows: CUDA if `nvidia-smi` works, otherwise Vulkan or CPU). Wait for it to finish.
 

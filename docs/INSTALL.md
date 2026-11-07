@@ -6,7 +6,7 @@
 
 | Platform | File | Requirements |
 |---|---|---|
-| macOS (Apple Silicon or Intel) | `compute-mac.dmg` | macOS 12 or later |
+| macOS (Apple Silicon) | `compute-mac.dmg` | macOS 12 or later |
 | Windows 10/11 (64-bit) | `compute-windows.zip` | Microsoft Edge WebView2 Runtime (see below) |
 
 The builds are **not code-signed yet**, so your computer will warn you the first time you open the app. The steps below get past that warning.
@@ -16,7 +16,7 @@ The builds are **not code-signed yet**, so your computer will warn you the first
 1. Open `compute-mac.dmg` and drag **compute** into **Applications**.
 2. The first time, **right-click (or Control-click) compute in Applications and choose Open**, then click **Open** in the dialog.
    - If macOS only offers "Move to Trash" or "Done": open **System Settings → Privacy & Security**, scroll to the message about "compute" and click **Open Anyway**, then confirm.
-3. If macOS asks whether compute may **find devices on your local network**, click **Allow**. That's how it finds a pool on your LAN.
+3. If macOS asks whether **python3.13** may **find devices on your local network**, click **Allow**. That's how it finds a pool on your LAN. /compute runs on its own copy of Python, so that's the name macOS shows, both in the question and under **System Settings → Privacy & Security → Local Network**.
 4. If macOS asks whether compute may **accept incoming network connections**, click **Allow**. Pool members connect to each other directly.
 
 ## Windows
