@@ -19,6 +19,9 @@ def self_command(*args: str) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> None:
+    from compute.common.env import load_env
+
+    load_env()   # .env secrets/settings (admin email, passwords, pool token); real env vars win
     args = list(sys.argv[1:] if argv is None else argv)
     role = args[0] if args else "app"
     rest = args[1:]

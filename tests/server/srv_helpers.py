@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-ADMIN = "admin@example.com"
+ADMIN = "admin@compute.test"   # placeholder; the real one lives in .env (COMPUTE_ADMIN_EMAIL)
 ADMIN_PW = "admin-password"
 
 

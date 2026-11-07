@@ -19,8 +19,10 @@ def check_admin(cfg: EngineConfig, email: str, password: str) -> Optional[str]:
     from compute.server.auth import Auth, AuthError, normalize_email
     from compute.server.db import Database, database_path
 
+    if not admin_email():
+        return "no admin account is configured: set COMPUTE_ADMIN_EMAIL in .env (see .env.example)"
     if normalize_email(email) != admin_email():
-        return f"only the admin account ({admin_email()}) can start the main server"
+        return "only the admin account can start the main server"
     if not password:
         return "the admin password is required (--admin-password or COMPUTE_ADMIN_PASSWORD)"
     db = Database(database_path(cfg.home))

@@ -4,6 +4,10 @@ Pool computers (Apple Silicon Macs and Windows PCs) into one shared LLM. Contrib
 
 See `docs/` for the API contract, install notes and draft terms.
 
+## Secrets and settings (.env)
+
+Copy `.env.example` to `.env` and fill in `COMPUTE_ADMIN_EMAIL` (required on the server machine), and optionally `COMPUTE_ADMIN_PASSWORD` and `COMPUTE_INF_TOKEN`. `.env` is git-ignored. The packaged app reads `~/.compute/.env` (Mac) or `%LOCALAPPDATA%\compute\.env` (Windows). Real environment variables override the file.
+
 ## Run from source (Mac)
 
 ```bash
@@ -17,7 +21,7 @@ uv run pytest -q                                   # 160 tests, no GPU needed
 Roles (the packaged app runs the same subcommands on itself):
 
 ```bash
-COMPUTE_ADMIN_PASSWORD=... compute server serve --admin-email admin@example.com   # main server, admin only
+compute server serve --admin-email "$COMPUTE_ADMIN_EMAIL"   # main server, admin only (email + password from .env)
 compute node start --url http://<server>:8765 --memory-percent 50 --models-dir ~/models  # contribute
 ```
 

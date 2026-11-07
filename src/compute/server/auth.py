@@ -50,7 +50,7 @@ def normalize_email(email: str) -> str:
 
 
 def is_admin(user: Optional[User]) -> bool:
-    return user is not None and normalize_email(user.email) == admin_email()
+    return user is not None and bool(admin_email()) and normalize_email(user.email) == admin_email()
 
 
 def accepted_terms(user: User) -> bool:
@@ -114,15 +114,15 @@ class Auth:
         _check_password(password)
         if self.get_by_email(email) is not None:
             raise AuthError("That email is already registered.", 409)
-        if email == admin_email():
+        if admin_email() and email == admin_email():
             raise AuthError("That email is reserved for the server admin.", 403)
         return self._create(email, password, name)
 
     def ensure_admin(self, email: str, password: str) -> User:
         """First start creates the admin with ``password``; later starts must match it."""
         email = normalize_email(email)
-        if email != admin_email():
-            raise AuthError(f"Only {admin_email()} can run the main server.", 403)
+        if not admin_email() or email != admin_email():
+            raise AuthError("Only the admin account can run the main server.", 403)
         _check_password(password)
         user = self.get_by_email(email)
         if user is None:

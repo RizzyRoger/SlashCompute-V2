@@ -18,11 +18,11 @@ Auth: the main server accepts `Authorization: Bearer <session token>` (desktop a
 ### Start (admin only)
 `compute server serve --admin-email E --admin-password P [--host 0.0.0.0 --port 8765 --home DIR]`
 (the password may also come from env `COMPUTE_ADMIN_PASSWORD`).
-- If `E` is not `config.admin_email()` (default `admin@example.com`, env `COMPUTE_ADMIN_EMAIL`), it exits with code 2 **before binding**.
+- The admin email comes from `COMPUTE_ADMIN_EMAIL` (set in `.env`, never committed). If it's unset, or `E` doesn't match it, the server exits with code 2 **before binding**.
 - On first start it creates the admin account with `P`. Later starts must match the stored password.
 
 ### Health
-`GET /health` → `{"ok": true, "server": "compute", "version": "0.2.0", "inference_nodes": int, "admin_email": str}`
+`GET /health` → `{"ok": true, "server": "compute", "version": "0.2.0", "inference_nodes": int}` (never reveals the admin email)
 
 ### Accounts
 | Method | Path | Body | Returns |

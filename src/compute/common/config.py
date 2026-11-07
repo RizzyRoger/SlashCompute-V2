@@ -8,12 +8,13 @@ from dataclasses import dataclass, field, fields
 from pathlib import Path
 
 MDNS_SERVICE_TYPE = "_compute._tcp.local."
-ADMIN_EMAIL_DEFAULT = "admin@example.com"
 
 
 def admin_email() -> str:
-    """The one hard-coded admin account (PRD v2). ``COMPUTE_ADMIN_EMAIL`` overrides it."""
-    return (os.environ.get("COMPUTE_ADMIN_EMAIL") or ADMIN_EMAIL_DEFAULT).strip().lower()
+    """The one admin account, from ``COMPUTE_ADMIN_EMAIL`` (set it in ``.env``; see ``.env.example``).
+
+    Empty when unset: then nobody is admin and the main server refuses to start."""
+    return (os.environ.get("COMPUTE_ADMIN_EMAIL") or "").strip().lower()
 
 
 def default_home() -> Path:

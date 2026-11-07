@@ -42,6 +42,14 @@ def test_admin_is_created_on_first_start_and_checked_afterwards(tmp_path, no_bin
     assert serve(tmp_path, ADMIN, ADMIN_PW).exit_code == 0
 
 
+def test_server_refuses_to_start_without_a_configured_admin(tmp_path, no_bind, monkeypatch):
+    monkeypatch.delenv("COMPUTE_ADMIN_EMAIL")
+    res = serve(tmp_path, ADMIN, ADMIN_PW)
+    assert res.exit_code == 2
+    assert "COMPUTE_ADMIN_EMAIL" in res.output
+    assert not no_bind
+
+
 def test_admin_email_env_override(tmp_path, no_bind, monkeypatch):
     monkeypatch.setenv("COMPUTE_ADMIN_EMAIL", "boss@lan.test")
     assert serve(tmp_path, ADMIN, ADMIN_PW).exit_code == 2
@@ -52,7 +60,7 @@ def test_admin_email_env_override(tmp_path, no_bind, monkeypatch):
 
 def test_health(client):
     body = client.get("/health").json()
-    assert body == {"ok": True, "server": "compute", "version": "0.2.0", "inference_nodes": 0, "admin_email": ADMIN}
+    assert body == {"ok": True, "server": "compute", "version": "0.2.0", "inference_nodes": 0}   # never leaks the admin email
 
 
 def test_first_user_is_not_admin_and_gets_the_starter_grant(client):

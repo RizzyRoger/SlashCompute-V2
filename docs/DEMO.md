@@ -17,7 +17,7 @@ The 27B model is 17.6 GB, so neither a 16 GB Mac nor a typical gaming GPU can ho
 
 ## 1. Mac: start the main server (admin)
 1. Open the app → **Connect** → *Start main server*.
-2. Sign in with `admin@example.com` and the admin password you choose (any other email is refused).
+2. Sign in with the admin email from your `.env` (`COMPUTE_ADMIN_EMAIL` in `~/.compute/.env`) and the admin password you choose (any other email is refused).
 3. **Account**: you're signed in as admin; **Wallet** shows *unlimited*.
 4. **Contribute**: add the models folder
    `~/.cache/huggingface/hub/models--unsloth--Qwen3.8-27B-GGUF/snapshots/4ca720788d1e01f1bff70c033e0d0028fd02e502`

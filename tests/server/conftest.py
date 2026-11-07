@@ -21,7 +21,9 @@ from compute.common.config import EngineConfig  # noqa: E402
 @pytest.fixture(autouse=True)
 def fast_env(monkeypatch):
     monkeypatch.setattr("compute.server.auth.ITERATIONS", 1)
-    monkeypatch.delenv("COMPUTE_ADMIN_EMAIL", raising=False)
+    from srv_helpers import ADMIN
+
+    monkeypatch.setenv("COMPUTE_ADMIN_EMAIL", ADMIN)
     monkeypatch.delenv("COMPUTE_STARTER_FLOPS", raising=False)
 
 

@@ -11,7 +11,7 @@ from typing import Callable, Optional
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from compute.common.config import EngineConfig, admin_email
+from compute.common.config import EngineConfig
 from compute.engine import PREFIX
 from compute.engine.accounting import AccountingError
 from compute.engine.config import InferenceSettings
@@ -154,8 +154,7 @@ def create_app(cfg: EngineConfig, settings: Optional[InferenceSettings] = None, 
 
     @app.get("/health")
     async def health():
-        return {"ok": True, "server": "compute", "version": VERSION, "inference_nodes": len(sv.svc.online),
-                "admin_email": admin_email()}
+        return {"ok": True, "server": "compute", "version": VERSION, "inference_nodes": len(sv.svc.online)}
 
     app.include_router(make_router(sv))
     mount(app, sv.svc)
