@@ -35,6 +35,7 @@ def make_controller(tmp_path: Path):
         lan_fn = lan if callable(lan) else (lambda: list(lan))
         return Controller(home=tmp_path, popen=popen or Recorder(), run=run or Recorder(), http=http,
                           lan_servers_fn=lan_fn, lan_ip_fn=lambda: "10.0.0.5",
+                          local_network_blocked_fn=kwargs.pop("local_network_blocked_fn", lambda ip: False),
                           server_wait_s=0.3, node_wait_s=0.2, **kwargs)
     return build
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import errno
 import logging
 import math
 import socket
@@ -22,6 +23,8 @@ log = logging.getLogger(__name__)
 RESOLVE_TIMEOUT_MS = 2000
 ADVERT_TTL_S = 120   # every advert record; browsers re-ask at ~80%, so a dead server goes in ~2 min
 NETWORK_CHECK_S = 5.0   # how often a server checks whether its LAN address changed
+MDNS_GROUP = ("224.0.0.251", 5353)
+EMPTY_MDNS_QUERY = bytes(12)   # a DNS header with no questions: every responder ignores it
 
 
 def lan_ip() -> str:
@@ -32,6 +35,24 @@ def lan_ip() -> str:
         return s.getsockname()[0]
     except OSError:
         return "127.0.0.1"
+    finally:
+        s.close()
+
+
+def local_network_blocked(ip: Optional[str] = None) -> bool:
+    """Whether the OS refuses to let this app reach the LAN at all. macOS answers "No route to host"
+    (EHOSTUNREACH) to an app whose Local Network access is off: no mDNS adverts or browsing (only loopback,
+    so the app even sees its own server) and no connections to any other device. Sends one empty mDNS query."""
+    ip = ip or lan_ip()
+    if ip.startswith("127."):
+        return False   # offline: no LAN to be blocked from
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(ip))
+        s.sendto(EMPTY_MDNS_QUERY, MDNS_GROUP)
+        return False
+    except OSError as e:
+        return e.errno == errno.EHOSTUNREACH
     finally:
         s.close()
 

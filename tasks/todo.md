@@ -73,7 +73,7 @@ Plan: ~/.claude/plans/okay-on-the-main-atomic-flamingo.md · Builds on `1c232c6`
 ## Review
 
 - Everyone on the network needs this version for auto-join; older apps can still use the button (same service type), and older servers (no `started`) are still found, sorted last.
-- zeroconf logs a "No route to host" warning for interfaces it can't send on (VPN tunnel, hotspot); harmless.
+- zeroconf's "No route to host" on a VPN tunnel is harmless, but on the Wi-Fi/Ethernet address it means macOS Local Network access is off for the app: nothing on the LAN works. The app now detects this (`local_network_blocked`) and says how to fix it.
 
 # Host warning when its server isn't visible
 

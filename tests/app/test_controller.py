@@ -368,3 +368,17 @@ def test_own_server_missing_from_the_network_is_flagged_after_a_grace_period(mak
 
 def test_advertised_is_none_without_a_local_server(make_controller):
     assert make_controller(lan=[EARLY]).status()["server"]["advertised"] is None
+
+
+def test_blocked_local_network_is_reported_and_its_own_advert_does_not_count(make_controller, monkeypatch):
+    seen = []
+    c = make_controller(lan=[LanServer("http://10.0.0.5:8765", "compute-me", 1.0)],   # seen over loopback only
+                        local_network_blocked_fn=lambda ip: seen.append(ip) or True)
+    running_server(c, monkeypatch, age_s=60)
+    st = c.status()
+    assert st["local_network_blocked"] is True and seen == ["10.0.0.5"]
+    assert st["server"]["advertised"] is False
+
+
+def test_open_local_network_is_not_reported(make_controller):
+    assert make_controller().status()["local_network_blocked"] is False
