@@ -1,5 +1,6 @@
 import { attachFile, server, shell, streamChat } from './api.js'
 import { initCode, setCodeModels } from './code.js'
+import { chooseFolder } from './folders.js'
 import { formatFlops } from './format.js'
 
 // ---------------------------------------------------------------- shared
@@ -247,11 +248,13 @@ const renderNode = (node) => {
   $('node-stop').disabled = !node.running
 }
 
-const addModelsDir = async (event) => {
-  const { dir } = formData(event.target)
+const addModelsDir = async () => {
+  const dir = await chooseFolder({ title: 'Add a model folder' })
+  if (!dir) return
+  if (state.settings.models_dirs.includes(dir)) return say(`${dir} is already a model folder.`)
   await saveSettings({ models_dirs: [...state.settings.models_dirs, dir] })
-  event.target.reset()
   renderSettings()
+  say(`Added ${dir}.`)
 }
 
 const saveMemory = async (event) => {
@@ -283,7 +286,7 @@ const initContribute = () => {
   const slider = $('memory-form').elements.memory_percent
   slider.addEventListener('input', () => { $('memory-value').textContent = slider.value })
   slider.addEventListener('change', guarded(saveMemory))
-  $('models-dir-form').addEventListener('submit', guarded(addModelsDir))
+  $('models-dir-add').addEventListener('click', guarded(addModelsDir))
   $('node-start').addEventListener('click', guarded(startNode))
   $('node-stop').addEventListener('click', guarded(stopNode))
   setInterval(() => pollLive().catch(() => {}), LIVE_POLL_MS)

@@ -2,6 +2,7 @@
 // The shell runs each tab's turns (src/compute/app/code/); this module shows them and sends your choices.
 
 import { shell, streamEvents } from './api.js'
+import { chooseFolder } from './folders.js'
 import { formatFlops } from './format.js'
 
 const $ = (id) => document.getElementById(id)
@@ -357,9 +358,22 @@ const confirmNotice = () => new Promise((resolve) => {
   dialog.showModal()
 })
 
+const setRoot = (root) => {
+  $('code-new-form').elements.root.value = root
+  $('code-root-chosen').textContent = root || 'No folder chosen'
+  $('code-root-choose').textContent = root ? 'Change...' : 'Choose folder...'
+}
+
+const pickRoot = async () => {
+  const start = $('code-new-form').elements.root.value
+  const root = await chooseFolder({ title: 'Choose the project folder', start })
+  if (root) setRoot(root)
+}
+
 const openTab = async (event) => {
   const form = event.target
   const body = Object.fromEntries(new FormData(form).entries())
+  if (!body.root) throw new Error('Choose a project folder first.')
   if (!body.model) throw new Error('Pick a model first (Refresh models in the Chat section).')
   if (!(await confirmNotice())) return
   const meta = await api.open({ ...body, budget_pflops: Number(body.budget_pflops || 0) })
@@ -498,6 +512,7 @@ const loadTabs = async () => {
 export const initCode = ({ say, guarded }) => {
   ui.say = say
   $('code-new-form').addEventListener('submit', guarded(openTab))
+  $('code-root-choose').addEventListener('click', guarded(pickRoot))
   $('code-mode').addEventListener('change', guarded(changeMode))
   $('code-run-commands').addEventListener('change', guarded(changeRunCommands))
   $('code-settings-form').addEventListener('submit', guarded(updateSettings))

@@ -91,10 +91,7 @@
       </form>
       <h3>Model folders</h3>
       <ul id="models-dirs"></ul>
-      <form id="models-dir-form">
-        <label>Folder path <input name="dir" placeholder="/Users/me/models" required></label>
-        <button type="submit">Add folder</button>
-      </form>
+      <p><button type="button" id="models-dir-add">Add folder...</button></p>
       <p>
         <button type="button" id="node-start">Start contributing</button>
         <button type="button" id="node-stop">Stop contributing</button>
@@ -144,7 +141,14 @@
       <details id="code-new" open>
         <summary>New tab</summary>
         <form id="code-new-form">
-          <label>Project folder <input name="root" placeholder="/Users/me/project" required></label>
+          <div class="folder-field">
+            <span>Project folder</span>
+            <input type="hidden" name="root">
+            <span>
+              <code id="code-root-chosen">No folder chosen</code>
+              <button type="button" id="code-root-choose">Choose folder...</button>
+            </span>
+          </div>
           <label>Model <select name="model" id="code-model"></select></label>
           <label>Mode
             <select name="mode">
@@ -253,5 +257,24 @@
       </table>
     </section>
   </main>
+
+  <!-- Folder picker: shared by Code tabs and model folders (static/folders.js) -->
+  <dialog id="folder-picker" aria-labelledby="folder-picker-title">
+    <form method="dialog">
+      <h3 id="folder-picker-title">Choose a folder</h3>
+      <nav id="folder-places" aria-label="Places"></nav>
+      <div class="folder-path">
+        <button type="button" id="folder-up" aria-label="Up one folder">&uarr; Up</button>
+        <nav id="folder-crumbs" aria-label="Current folder"></nav>
+      </div>
+      <ul id="folder-list" aria-label="Folders inside"></ul>
+      <p id="folder-status" role="status" aria-live="polite"></p>
+      <div class="folder-actions">
+        <label><input type="checkbox" id="folder-hidden"> Show hidden folders</label>
+        <button value="cancel">Cancel</button>
+        <button value="choose" id="folder-choose">Choose this folder</button>
+      </div>
+    </form>
+  </dialog>
 </body>
 </html>

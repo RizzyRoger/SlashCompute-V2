@@ -6,6 +6,8 @@ import html
 import socket
 import threading
 import time
+from pathlib import Path
+from typing import Any, Callable, Optional
 
 import httpx
 import uvicorn
@@ -62,10 +64,26 @@ def ensure_shell(wait_s: float = 10.0) -> str:
     raise SystemExit(f"The app shell did not start at {url}")
 
 
+def folder_chooser(window: Any) -> Callable[[str], Optional[str]]:
+    """``pywebview.api.choose_folder(start)`` for the UI: the system folder picker (Finder on macOS,
+    File Explorer on Windows). Returns the chosen folder's full path, or None if cancelled."""
+
+    def choose_folder(start: str = "") -> Optional[str]:
+        import webview
+
+        kind = webview.FileDialog.FOLDER if hasattr(webview, "FileDialog") else webview.FOLDER_DIALOG
+        # No start folder: the OS opens where the user last was.
+        picked = window.create_file_dialog(kind, directory=start if start and Path(start).is_dir() else "")
+        return str(picked[0]) if picked else None
+
+    return choose_folder
+
+
 def open_window(url: str) -> None:
     import webview
 
-    webview.create_window(WINDOW_TITLE, url, width=WINDOW_W, height=WINDOW_H)
+    window = webview.create_window(WINDOW_TITLE, url, width=WINDOW_W, height=WINDOW_H)
+    window.expose(folder_chooser(window))
     webview.start()
 
 
