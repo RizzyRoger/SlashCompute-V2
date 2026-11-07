@@ -129,3 +129,6 @@ dialog p {flex-basis:100%;}
 
 /* ---- Errors in the message line (app.js adds .error), in the landing page's destructive red ---- */
 #message.error {color:#f9262a;}
+
+/* ---- The host's "server not visible on this network" warning (app.js), same red as errors ---- */
+#server-warning {color:#f9262a;font:11px/1.8 var(--font-mono);border-left:2px solid #f9262a;padding:10px 0 10px 16px;max-width:760px;}

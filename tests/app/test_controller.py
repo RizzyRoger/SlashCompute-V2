@@ -341,3 +341,30 @@ def test_status_reports_auto_join_and_lan_servers(make_controller):
     st = make_controller(lan=[EARLY]).status()
     assert st["server"]["auto_join"] is True
     assert st["server"]["lan"] == [{"url": EARLY.url, "name": EARLY.name}]
+
+
+# ------------------------------------------------- is our own server visible?
+
+def running_server(c, monkeypatch, age_s: float):
+    c.server_pid_path.write_text("4242\n")
+    then = __import__("time").time() - age_s
+    __import__("os").utime(c.server_pid_path, (then, then))
+    monkeypatch.setattr(ctl_mod, "pid_alive", lambda pid: True)
+
+
+def test_own_server_seen_on_the_network_is_advertised(make_controller, monkeypatch):
+    c = make_controller(lan=[LanServer("http://10.0.0.5:8765", "compute-me", 1.0)])
+    running_server(c, monkeypatch, age_s=60)
+    assert c.status()["server"]["advertised"] is True
+
+
+def test_own_server_missing_from_the_network_is_flagged_after_a_grace_period(make_controller, monkeypatch):
+    c = make_controller(lan=[EARLY])   # only someone else's server is visible
+    running_server(c, monkeypatch, age_s=1)
+    assert c.status()["server"]["advertised"] is None    # just started: too early to tell
+    running_server(c, monkeypatch, age_s=60)
+    assert c.status()["server"]["advertised"] is False
+
+
+def test_advertised_is_none_without_a_local_server(make_controller):
+    assert make_controller(lan=[EARLY]).status()["server"]["advertised"] is None

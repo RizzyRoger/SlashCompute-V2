@@ -81,12 +81,26 @@ const serverState = (srv) => {
   return `${srv.url} (${srv.reachable ? 'online' : 'unreachable'}, ${how})`
 }
 
+const IS_MAC = navigator.userAgent.includes('Mac')
+
+// Shown on the computer that hosts the main server when this network can't see it.
+const notAdvertisedWarning = (srv) => [
+  "Your main server isn't showing up on this network, so others can't join it automatically.",
+  IS_MAC
+    ? 'Turn compute on in System Settings > Privacy & Security > Local Network, and allow incoming connections if macOS asks.'
+    : 'Allow compute through Windows Defender Firewall on Private networks, and set this network to Private.',
+  `Check everyone is on the same Wi-Fi. Meanwhile others can type ${srv.lan_url} under Connect.`,
+].join(' ')
+
 const renderServer = (status) => {
   const { server: srv } = status
   $('server-state').textContent = serverState(srv)
   $('server-local-state').textContent = srv.local_running
     ? `Running on this computer. Others can connect to ${srv.lan_url}`
     : 'Not running on this computer.'
+  const warn = srv.local_running && srv.advertised === false   // null: too early to tell
+  $('server-warning').hidden = !warn
+  $('server-warning').textContent = warn ? notAdvertisedWarning(srv) : ''
 }
 
 // Turns auto-join back on after a typed address.

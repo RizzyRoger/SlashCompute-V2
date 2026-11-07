@@ -114,7 +114,7 @@ Rules:
 |---|---|---|
 | GET | `/` | barebones UI |
 | GET/POST | `/api/settings` | `{server_url, memory_percent, models_dirs: [], contribute: bool, session_token, auto_join: bool}`. `auto_join` (default true) follows this network's pool; the UI sets it false when you type an address. |
-| GET | `/api/status` | `{server: {url, reachable, local_running, lan_url, health, auto_join, lan: [{url, name}]}, node: {running, status...}, settings, last_error}`. Each call also joins this network's pool (see below). |
+| GET | `/api/status` | `{server: {url, reachable, local_running, lan_url, advertised, health, auto_join, lan: [{url, name}]}, node: {running, status...}, settings, last_error}`. Each call also joins this network's pool (see below). `advertised`: whether this computer's own main server shows up in its own mDNS browse (true/false; null when none is running or it started under 10 s ago). The Connect tab warns when it's false. |
 | POST | `/api/discover` | turns `auto_join` back on and joins this network's pool, waiting up to 5 s for an advert; 404 if none |
 | POST | `/api/server/start` | `{email, password}`: starts a local main server (admin only; error text comes from the server). Refused when another main server is already advertised on the LAN: one pool per network. |
 | POST | `/api/server/stop` | – |
