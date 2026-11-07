@@ -12,9 +12,8 @@ MDNS_SERVICE_TYPE = os.environ.get("COMPUTE_MDNS_TYPE") or "_compute._tcp.local.
 
 
 def admin_email() -> str:
-    """The one admin account, from ``COMPUTE_ADMIN_EMAIL`` (set it in ``.env``; see ``.env.example``).
-
-    Empty when unset: then nobody is admin and the main server refuses to start."""
+    """The admin account, from ``COMPUTE_ADMIN_EMAIL``. ``compute server serve`` sets it to whoever starts
+    the server (the pool's host), so anybody can host a pool; empty elsewhere means nobody is admin."""
     return (os.environ.get("COMPUTE_ADMIN_EMAIL") or "").strip().lower()
 
 

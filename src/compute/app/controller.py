@@ -145,7 +145,7 @@ def tail(path: Path, since: int = 0, chars: int = LOG_TAIL_CHARS) -> str:
 
 def exit_message(code: Optional[int], log_tail: str) -> str:
     if code == 2:
-        head = "Only the admin account can start the main server."
+        head = "The main server refused to start."
     else:
         head = f"The main server stopped (exit code {code})."
     return f"{head}\n{log_tail}" if log_tail else head
@@ -289,7 +289,7 @@ class Controller:
     def start_server(self, email: str, password: str) -> dict:
         email, password = (email or "").strip(), password or ""
         if not email or not password:
-            raise ControllerError("Enter the admin email and password.")
+            raise ControllerError("Enter your email and a password.")
         if self.server_pid() is not None:
             return self.status()
         other = choose_pool(s for s in self.lan_servers() if s.url != self.lan_server_url())

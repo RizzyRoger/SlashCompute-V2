@@ -92,12 +92,12 @@ def test_server_argv_and_password_only_in_env(make_controller, monkeypatch, tmp_
 
 
 def test_server_early_exit_surfaces_message(make_controller, monkeypatch):
-    popen = Recorder(exit_code=2, log_text="error: only the admin may run the server\n")
+    popen = Recorder(exit_code=2, log_text="compute server: a password is required\n")
     c = make_controller(popen=popen)
     with pytest.raises(ControllerError) as e:
         c.start_server("someone@example.com", "pw")
-    assert "Only the admin" in str(e.value)
-    assert "only the admin may run the server" in str(e.value)
+    assert "refused to start" in str(e.value)
+    assert "a password is required" in str(e.value)
     assert not c.server_pid_path.exists()
 
 

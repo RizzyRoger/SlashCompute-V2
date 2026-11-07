@@ -137,7 +137,7 @@ def test_server_start_error_is_400(make_client):
     client, _ = make_client(lambda _r: httpx.Response(200))
     r = client.post("/api/server/start", json={"email": "", "password": ""})
     assert r.status_code == 400
-    assert "admin email" in r.json()["detail"]
+    assert "your email" in r.json()["detail"]
 
 
 def test_node_start_without_server_is_400(make_client):

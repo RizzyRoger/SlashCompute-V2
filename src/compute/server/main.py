@@ -1,30 +1,32 @@
-"""``compute server``: run the main server. Only the admin account (``config.admin_email()``) may start it."""
+"""``compute server``: run the main server. Anybody can host a pool: whoever starts it is its admin."""
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Optional
 
 import typer
 
-from compute.common.config import EngineConfig, admin_email
+from compute.common.config import EngineConfig
 from compute.common.logging import setup_logging
 
-app = typer.Typer(no_args_is_help=True, help="/compute main server (admin only)")
+app = typer.Typer(no_args_is_help=True, help="/compute main server (host a pool)")
 EXIT_REFUSED = 2
 
 
 def check_admin(cfg: EngineConfig, email: str, password: str) -> Optional[str]:
-    """Create the admin on first start, verify the password afterwards. Returns an error message or None."""
+    """Make whoever starts the server its admin (the pool's host): the account is created on first start
+    and its password checked afterwards. Returns an error message or None."""
     from compute.server.auth import Auth, AuthError, normalize_email
     from compute.server.db import Database, database_path
 
-    if not admin_email():
-        return "no admin account is configured: set COMPUTE_ADMIN_EMAIL in .env (see .env.example)"
-    if normalize_email(email) != admin_email():
-        return "only the admin account can start the main server"
+    email = normalize_email(email)
+    if not email:
+        return "an email is required (--admin-email)"
     if not password:
-        return "the admin password is required (--admin-password or COMPUTE_ADMIN_PASSWORD)"
+        return "a password is required (--admin-password or COMPUTE_ADMIN_PASSWORD)"
+    os.environ["COMPUTE_ADMIN_EMAIL"] = email   # config.admin_email() is this host from now on, .env or not
     db = Database(database_path(cfg.home))
     try:
         Auth(db).ensure_admin(email, password)
@@ -37,9 +39,9 @@ def check_admin(cfg: EngineConfig, email: str, password: str) -> Optional[str]:
 
 @app.command()
 def serve(
-    admin_email_opt: str = typer.Option(..., "--admin-email", help="The admin account's email"),
+    admin_email_opt: str = typer.Option(..., "--admin-email", help="Your email: you host this pool and are its admin"),
     admin_password: str = typer.Option("", "--admin-password", envvar="COMPUTE_ADMIN_PASSWORD",
-                                       help="The admin password (set on first start, checked afterwards)"),
+                                       help="Your password (set on first start, checked afterwards)"),
     host: Optional[str] = typer.Option(None, help="Bind address (default 0.0.0.0)"),
     port: Optional[int] = typer.Option(None, help="Port (default 8765)"),
     home: Optional[Path] = typer.Option(None, help="State directory (default ~/.compute)"),

@@ -15,10 +15,10 @@ Auth: the main server accepts `Authorization: Bearer <session token>` (desktop a
 
 ## Main server (`compute server serve`, default port 8765)
 
-### Start (admin only)
+### Start (anybody can host)
 `compute server serve --admin-email E --admin-password P [--host 0.0.0.0 --port 8765 --home DIR]`
 (the password may also come from env `COMPUTE_ADMIN_PASSWORD`).
-- The admin email comes from `COMPUTE_ADMIN_EMAIL` (set in `.env`, never committed). If it's unset, or `E` doesn't match it, the server exits with code 2 **before binding**.
+- Anybody can host: `E` becomes this server's admin (it overrides any `COMPUTE_ADMIN_EMAIL` in `.env`). A missing email or password, or the wrong password for an existing account, exits with code 2 **before binding**.
 - On first start it creates the admin account with `P`. Later starts must match the stored password.
 
 ### Health
@@ -116,7 +116,7 @@ Rules:
 | GET/POST | `/api/settings` | `{server_url, memory_percent, models_dirs: [], contribute: bool, session_token, auto_join: bool}`. `auto_join` (default true) follows this network's pool; the UI sets it false when you type an address. |
 | GET | `/api/status` | `{server: {url, reachable, local_running, lan_url, advertised, health, auto_join, lan: [{url, name}]}, node: {running, status...}, settings, last_error}`. Each call also joins this network's pool (see below). `advertised`: whether this computer's own main server shows up in its own mDNS browse (true/false; null when none is running or it started under 10 s ago). The Connect tab warns when it's false. |
 | POST | `/api/discover` | turns `auto_join` back on and joins this network's pool, waiting up to 5 s for an advert; 404 if none |
-| POST | `/api/server/start` | `{email, password}`: starts a local main server (admin only; error text comes from the server). Refused when another main server is already advertised on the LAN: one pool per network. |
+| POST | `/api/server/start` | `{email, password}`: starts a local main server; whoever starts it is its admin (error text comes from the server). Refused when another main server is already advertised on the LAN: one pool per network. |
 | POST | `/api/server/stop` | – |
 | POST | `/api/node/start` / `/api/node/stop` | start/stop contributing (needs a session token whose terms are accepted) |
 | ANY | `/api/coord/{path}` | proxy to the main server, forwarding the auth header/cookie |
