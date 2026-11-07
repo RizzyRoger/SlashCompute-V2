@@ -1,4 +1,5 @@
-/* /compute admin stylesheet. CSS only: admin.js and the server API are unchanged.
+/* /compute admin stylesheet. The server API is unchanged; admin.js only adds an `error` class to the
+   message line when something fails.
    Same design as the app (src/compute/app/static/app.css, from the landing page team's
    midnight-mac-showcase restyle): same tokens, fonts, texture and controls, applied to the admin markup.
    Files resolve relative to /admin/static/. */
@@ -29,6 +30,7 @@ header h1::first-letter {color:var(--primary);}
 #who {margin:0;align-self:center;color:var(--muted-foreground);font:11px var(--font-mono);}
 #message {grid-column:1/-1;color:var(--primary);font:11px/1.8 var(--font-mono);margin:0;}
 #message:empty {display:none;}
+#message.error {color:#f9262a;} /* the landing page's destructive red */
 
 /* Page */
 body > section,main {max-width:1400px;margin:auto;padding:12px 40px 60px;}

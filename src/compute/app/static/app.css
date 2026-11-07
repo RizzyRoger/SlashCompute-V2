@@ -1,8 +1,10 @@
-/* /compute app stylesheet. CSS only: index.html, the JS, the Python and the API are unchanged.
+/* /compute app stylesheet. index.html, the Python and the API are unchanged; the JS only adds an
+   `error` class to the message line when something fails.
    Design: the landing page team's "restyled native app" stylesheet, taken verbatim from
    github.com/revantashokraj-cmyk/midnight-mac-showcase (public/reference/restyled-native-app.html, commit 5c7f056),
-   with three additions: bundled fonts (below), the texture served from /static, and rules for the
-   folder picker, which landed after their snapshot (end of file). Restyle by editing this file only. */
+   with four additions: bundled fonts (below), the texture served from /static, rules for the
+   folder picker, which landed after their snapshot, and red error messages (end of file).
+   Restyle by editing this file only. */
 
 /* Space Grotesk and JetBrains Mono (variable, latin + latin-ext). SIL OFL 1.1: see fonts/OFL-*.txt. */
 @font-face {font-family:'Space Grotesk';font-style:normal;font-weight:300 700;font-display:swap;src:url('fonts/space-grotesk-latin-ext-wght-normal.woff2') format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
@@ -124,3 +126,6 @@ dialog p {flex-basis:100%;}
 #folder-choose:hover {background:var(--surface-hover);color:var(--foreground);}
 #folder-choose:disabled {background:var(--background);color:var(--foreground);box-shadow:none;}
 @media(max-width:799px) {.folder-field {flex:1 1 240px;}#folder-picker {padding:18px;}}
+
+/* ---- Errors in the message line (app.js adds .error), in the landing page's destructive red ---- */
+#message.error {color:#f9262a;}
