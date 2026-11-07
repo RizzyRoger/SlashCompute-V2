@@ -164,7 +164,19 @@ def _mmproj_gguf() -> bytes:
                                                                                      (16, 16), 0)])
 
 
+def _can_symlink(tmp_path) -> bool:
+    """Windows only allows symlinks with Developer Mode or admin rights."""
+    try:
+        (tmp_path / "probe-link").symlink_to(tmp_path)
+    except OSError:
+        return False
+    (tmp_path / "probe-link").unlink()
+    return True
+
+
 def test_scan_follows_symlinks_and_pairs_mmproj(tmp_path):
+    if not _can_symlink(tmp_path):
+        pytest.skip("this OS account cannot create symlinks")
     blobs, snap = tmp_path / "hub/models--x/blobs", tmp_path / "hub/models--x/snapshots/abc"
     blobs.mkdir(parents=True)
     snap.mkdir(parents=True)

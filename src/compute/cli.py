@@ -18,6 +18,27 @@ def self_command(*args: str) -> list[str]:
     return [sys.executable, "-m", "compute", *args]
 
 
+def ensure_stdio(role: str) -> None:
+    """A windowed PyInstaller exe on Windows starts with ``sys.stdout``/``sys.stderr`` set to None, and
+    uvicorn/typer/logging crash on the first write or ``isatty()``. Point the missing streams at a log file."""
+    if sys.stdout is not None and sys.stderr is not None:
+        return
+    from compute.common.config import default_home
+
+    log_dir = default_home() / "logs"
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+        stream = open(log_dir / f"{role}-console.log", "a", encoding="utf-8", buffering=1)  # noqa: SIM115
+    except OSError:
+        import os
+
+        stream = open(os.devnull, "w", encoding="utf-8")  # noqa: SIM115
+    if sys.stdout is None:
+        sys.stdout = stream
+    if sys.stderr is None:
+        sys.stderr = stream
+
+
 def main(argv: list[str] | None = None) -> None:
     from compute.common.env import load_env
 
@@ -25,6 +46,7 @@ def main(argv: list[str] | None = None) -> None:
     args = list(sys.argv[1:] if argv is None else argv)
     role = args[0] if args else "app"
     rest = args[1:]
+    ensure_stdio(role if role in ("app", "server", "node") else "app")
     if role == "server":
         from compute.server.main import app as server_app
         server_app(rest, prog_name="compute server")
