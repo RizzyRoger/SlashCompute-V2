@@ -44,16 +44,21 @@ const api = {
 
 // ------------------------------------------------------------- helpers
 
-const say = (text) => {
-  $('message').textContent = text || ''
+// The message line. `error` marks a failure so the stylesheet can tell it apart from good news.
+const say = (text, { error = false } = {}) => {
+  const line = $('message')
+  line.textContent = text || ''
+  line.classList.toggle('error', error)
 }
+
+const fail = (err) => say(err.message, { error: true })
 
 const guarded = (fn) => async (event) => {
   if (event && event.type === 'submit') event.preventDefault()
   try {
     await fn(event)
   } catch (err) {
-    say(err.message)
+    fail(err)
   }
 }
 
@@ -115,7 +120,7 @@ const checkSession = async () => {
     await refresh()
   } catch (err) {
     showPanel(null)
-    if (err.status !== 401) say(err.message)
+    if (err.status !== 401) fail(err)
   }
 }
 
@@ -274,7 +279,7 @@ const upload = async (event) => {
 const refresh = async () => {
   const results = await Promise.allSettled([loadOverview(), loadUsers(), loadPool(), loadQueue()])
   const failed = results.find((r) => r.status === 'rejected')
-  if (failed) say(failed.reason.message)
+  if (failed) fail(failed.reason)
 }
 
 $('login-form').addEventListener('submit', guarded(login))

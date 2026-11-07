@@ -22,11 +22,14 @@ const state = {
   abort: null,
 }
 
-const say = (text) => {
-  $('message').textContent = text || ''
+// The message line. `error` marks a failure so the stylesheet can tell it apart from good news.
+const say = (text, { error = false } = {}) => {
+  const line = $('message')
+  line.textContent = text || ''
+  line.classList.toggle('error', error)
 }
 
-const fail = (err) => say(err && err.message ? err.message : String(err))
+const fail = (err) => say(err && err.message ? err.message : String(err), { error: true })
 
 // Run an async UI action and show its error, if any, in the message line.
 const guarded = (fn) => async (event) => {
@@ -547,7 +550,7 @@ const start = async () => {
   initChat()
   initWallet()
   initBoard()
-  initCode({ say, guarded })
+  initCode({ say, fail, guarded })
   await pollStatus().catch(fail)
   setInterval(() => pollStatus().catch(() => {}), STATUS_POLL_MS)
   if (!state.settings || !state.settings.server_url) return

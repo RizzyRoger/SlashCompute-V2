@@ -44,7 +44,7 @@ const api = {
 
 // id -> { meta, entries, seq, partial, state, stream }
 const tabs = new Map()
-const ui = { activeId: null, closeArmed: null, say: () => {} }
+const ui = { activeId: null, closeArmed: null, say: () => {}, fail: () => {} }
 let noticeShown = sessionStorage.getItem('codeNoticeShown') === '1'
 
 const newTab = (meta) => ({
@@ -186,7 +186,7 @@ const renderTabs = () => {
     button.type = 'button'
     button.setAttribute('role', 'tab')
     button.setAttribute('aria-selected', String(isActive(tab)))
-    button.addEventListener('click', () => select(tab.meta.id).catch((err) => ui.say(err.message)))
+    button.addEventListener('click', () => select(tab.meta.id).catch((err) => ui.fail(err)))
     return button
   }))
 }
@@ -232,7 +232,7 @@ const checkpointItem = (tab, cp) => {
   const button = el('button', 'Undo from here')
   button.type = 'button'
   button.disabled = tab.state.state !== 'idle'
-  button.addEventListener('click', () => undoFrom(tab, cp.turn).catch((err) => ui.say(err.message)))
+  button.addEventListener('click', () => undoFrom(tab, cp.turn).catch((err) => ui.fail(err)))
   li.append(button)
   return li
 }
@@ -509,8 +509,9 @@ const loadTabs = async () => {
   renderPanel()
 }
 
-export const initCode = ({ say, guarded }) => {
+export const initCode = ({ say, fail, guarded }) => {
   ui.say = say
+  ui.fail = fail
   $('code-new-form').addEventListener('submit', guarded(openTab))
   $('code-root-choose').addEventListener('click', guarded(pickRoot))
   $('code-mode').addEventListener('change', guarded(changeMode))
@@ -527,5 +528,5 @@ export const initCode = ({ say, guarded }) => {
       $('code-form').requestSubmit()
     }
   })
-  loadTabs().catch((err) => say(err.message))
+  loadTabs().catch(fail)
 }
