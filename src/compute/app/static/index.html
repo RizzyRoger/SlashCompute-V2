@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>/compute</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script type="module" src="/static/app.js"></script>
+</head>
+<body>
+  <header>
+    <h1>/compute</h1>
+    <p id="signin-state">Not signed in</p>
+    <nav>
+      <a href="#connect">Connect</a>
+      <a href="#account">Account</a>
+      <a href="#contribute">Contribute</a>
+      <a href="#chat">Chat</a>
+      <a href="#wallet">Wallet</a>
+      <a href="#leaderboard">Leaderboard</a>
+    </nav>
+    <p id="message" role="status" aria-live="polite"></p>
+  </header>
+
+  <main>
+    <!-- Connect -->
+    <section id="connect">
+      <h2>Connect</h2>
+      <p>Main server: <span id="server-state">not connected</span></p>
+      <p><button type="button" id="find-lan">Find on this network</button></p>
+      <form id="server-url-form">
+        <label>Server address <input name="url" placeholder="192.168.1.10:8765"></label>
+        <button type="submit">Connect</button>
+      </form>
+      <details>
+        <summary>Start the main server on this computer (admin only)</summary>
+        <form id="server-start-form">
+          <label>Admin email <input name="email" type="email" required autocomplete="username"></label>
+          <label>Password <input name="password" type="password" required autocomplete="current-password"></label>
+          <button type="submit">Start main server</button>
+        </form>
+        <p id="server-local-state"></p>
+        <button type="button" id="server-stop">Stop main server</button>
+      </details>
+    </section>
+
+    <!-- Account -->
+    <section id="account">
+      <h2>Account</h2>
+      <div id="signed-out">
+        <form id="login-form">
+          <h3>Sign in</h3>
+          <label>Email <input name="email" type="email" required autocomplete="username"></label>
+          <label>Password <input name="password" type="password" required autocomplete="current-password"></label>
+          <button type="submit">Sign in</button>
+        </form>
+        <form id="register-form">
+          <h3>Register</h3>
+          <label>Display name <input name="name" required></label>
+          <label>Email <input name="email" type="email" required autocomplete="username"></label>
+          <label>Password <input name="password" type="password" required autocomplete="new-password"></label>
+          <button type="submit">Register</button>
+        </form>
+      </div>
+      <div id="signed-in" hidden>
+        <p>Signed in as <strong id="user-name"></strong> (<span id="user-email"></span>)</p>
+        <form id="name-form">
+          <label>Display name <input name="name" required></label>
+          <button type="submit">Save</button>
+        </form>
+        <p><button type="button" id="logout">Sign out</button></p>
+        <h3>Terms (DRAFT)</h3>
+        <p id="terms-state"></p>
+        <details>
+          <summary>Read the terms</summary>
+          <pre id="terms-text"></pre>
+        </details>
+        <button type="button" id="terms-accept">Accept terms</button>
+      </div>
+    </section>
+
+    <!-- Contribute -->
+    <section id="contribute">
+      <h2>Contribute</h2>
+      <form id="memory-form">
+        <label>Memory lent to the pool
+          <input name="memory_percent" type="range" min="1" max="100" step="1">
+          <output id="memory-value"></output>%
+        </label>
+      </form>
+      <h3>Model folders</h3>
+      <ul id="models-dirs"></ul>
+      <form id="models-dir-form">
+        <label>Folder path <input name="dir" placeholder="/Users/me/models" required></label>
+        <button type="submit">Add folder</button>
+      </form>
+      <p>
+        <button type="button" id="node-start">Start contributing</button>
+        <button type="button" id="node-stop">Stop contributing</button>
+      </p>
+      <p>Node: <span id="node-state">stopped</span></p>
+      <p>Earning: <span id="earn-rate">0</span>/s. Total earned: <span id="earn-total">0</span></p>
+      <ul id="my-nodes"></ul>
+    </section>
+
+    <!-- Chat -->
+    <section id="chat">
+      <h2>Chat</h2>
+      <form id="session-form">
+        <label>Model <select name="model" id="chat-model"></select></label>
+        <label>Session budget (PFLOPs) <input name="pflops" type="number" min="0" step="any" value="1"></label>
+        <button type="submit">New session</button>
+        <button type="button" id="models-refresh">Refresh models</button>
+      </form>
+      <p id="session-state">No session (replies are charged to your wallet without a cap).</p>
+      <ol id="chat-log"></ol>
+      <div id="queue-state" hidden>
+        <p>Waiting in line: position <span id="queue-position"></span>, about <span id="queue-eta"></span> s.</p>
+        <button type="button" id="queue-cancel">Cancel</button>
+      </div>
+      <form id="chat-form">
+        <label>Message <textarea name="prompt" rows="3"></textarea></label>
+        <label>Attach <input type="file" id="attach-input" multiple></label>
+        <ul id="attachments"></ul>
+        <button type="submit" id="chat-send">Send</button>
+        <button type="button" id="chat-stop" hidden>Stop</button>
+      </form>
+      <dialog id="attach-notice">
+        <form method="dialog">
+          <p>Files you attach are sent to other people's computers in the pool to answer your message.</p>
+          <button value="cancel">Cancel</button>
+          <button value="ok">Send anyway</button>
+        </form>
+      </dialog>
+    </section>
+
+    <!-- Wallet -->
+    <section id="wallet">
+      <h2>Wallet</h2>
+      <p>Balance: <strong id="wallet-balance">-</strong></p>
+      <p>Earned: <span id="wallet-earned">-</span>. Spent: <span id="wallet-spent">-</span>. Reserved: <span id="wallet-reserved">-</span></p>
+      <form id="buy-form">
+        <label>Buy PFLOPs (TEST MODE, no real payment) <input name="pflops" type="number" min="0" step="any" required></label>
+        <button type="submit">Buy (test)</button>
+      </form>
+      <p id="receipt"></p>
+      <button type="button" id="wallet-refresh">Refresh</button>
+      <table>
+        <thead><tr><th>When</th><th>Kind</th><th>FLOPs</th><th>Note</th></tr></thead>
+        <tbody id="transactions"></tbody>
+      </table>
+    </section>
+
+    <!-- Leaderboard -->
+    <section id="leaderboard">
+      <h2>Leaderboard</h2>
+      <fieldset id="board-window">
+        <legend>Window</legend>
+        <label><input type="radio" name="window" value="all" checked> All time</label>
+        <label><input type="radio" name="window" value="week"> This week</label>
+      </fieldset>
+      <table>
+        <thead><tr><th>Rank</th><th>Name</th><th>FLOPs earned</th></tr></thead>
+        <tbody id="board"></tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

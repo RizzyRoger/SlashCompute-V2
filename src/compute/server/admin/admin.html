@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>/compute admin</title>
+  <style>
+    /* Layout only. Restyle freely. */
+    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0 auto; padding: 1rem; max-width: 80rem; }
+    section { margin: 2rem 0; }
+    form { display: flex; flex-wrap: wrap; align-items: end; gap: 0.5rem; }
+    label { display: flex; flex-direction: column; gap: 0.25rem; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { text-align: left; padding: 0.25rem 0.5rem; vertical-align: top; }
+    [hidden] { display: none !important; }
+  </style>
+  <script type="module" src="/admin/static/admin.js"></script>
+</head>
+<body>
+  <header>
+    <h1>/compute admin</h1>
+    <p id="who"></p>
+    <p id="message" role="status" aria-live="polite"></p>
+  </header>
+
+  <section id="login">
+    <h2>Admin sign in</h2>
+    <form id="login-form">
+      <label>Email <input name="email" type="email" required autocomplete="username"></label>
+      <label>Password <input name="password" type="password" required autocomplete="current-password"></label>
+      <button type="submit">Sign in</button>
+    </form>
+  </section>
+
+  <main id="panel" hidden>
+    <p>
+      <button type="button" id="refresh">Refresh</button>
+      <button type="button" id="logout">Sign out</button>
+    </p>
+
+    <section id="overview">
+      <h2>Overview</h2>
+      <dl id="overview-list"></dl>
+    </section>
+
+    <section id="users">
+      <h2>Users</h2>
+      <table>
+        <thead>
+          <tr><th>Email</th><th>Name</th><th>Balance</th><th>Earned</th><th>Spent</th><th>Flagged</th><th>Banned</th><th>Created</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="users-body"></tbody>
+      </table>
+    </section>
+
+    <section id="pool">
+      <h2>Pool nodes</h2>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Chip</th><th>Online</th><th>Committed GB</th><th>In use GB</th><th>Can head</th><th>Draining</th><th>Build</th></tr>
+        </thead>
+        <tbody id="nodes-body"></tbody>
+      </table>
+      <h2>Pipelines</h2>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Model</th><th>State</th><th>tok/s</th><th>Members</th><th>Notes</th><th></th></tr>
+        </thead>
+        <tbody id="pipelines-body"></tbody>
+      </table>
+    </section>
+
+    <section id="queue">
+      <h2>Queue</h2>
+      <table>
+        <thead><tr><th>Model</th><th>Queue ID</th><th>Position</th><th>ETA (s)</th><th></th></tr></thead>
+        <tbody id="queue-body"></tbody>
+      </table>
+    </section>
+
+    <section id="models">
+      <h2>Models</h2>
+      <table>
+        <thead><tr><th>ID</th><th>Status</th><th>Size GB</th><th>Arch</th><th>Heads</th><th>Uploaded</th><th></th></tr></thead>
+        <tbody id="models-body"></tbody>
+      </table>
+      <form id="upload-form">
+        <label>GGUF file <input name="file" type="file" accept=".gguf" required></label>
+        <label>Name (optional) <input name="name" placeholder="file name"></label>
+        <button type="submit">Upload model</button>
+      </form>
+      <progress id="upload-progress" hidden></progress>
+    </section>
+  </main>
+</body>
+</html>

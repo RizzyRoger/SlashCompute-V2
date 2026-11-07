@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "src/compute/app/static/index.html"
+        ],
+        "createdAt": "2026-11-07T19:52:51.646Z",
+        "reason": "user confirmed: UI is intentionally barebones this round; another team owns the visual design"
+      }
+    ]
+  }
+}
