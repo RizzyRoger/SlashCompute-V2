@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from compute.server.app import Services
 
 from compute.app.resources import admin_dir
+from compute.common.caching import REVALIDATE
 
 ADMIN_DIR = admin_dir()   # source checkout or PyInstaller bundle
 
@@ -217,5 +218,5 @@ def _admin_file(path: str) -> FileResponse:
     target = (root / path).resolve()
     if root not in target.parents or not target.is_file():
         raise HTTPException(404, f"admin file {path!r} is not installed (expected in {ADMIN_DIR})")
-    return FileResponse(target)
+    return FileResponse(target, headers=REVALIDATE)
 

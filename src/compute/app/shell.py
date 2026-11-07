@@ -9,7 +9,6 @@ from typing import Optional
 import httpx
 from fastapi import FastAPI, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
-from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTask
 
 from compute.app.attachments import AttachmentError, extract, max_bytes_for
@@ -18,6 +17,7 @@ from compute.app.code.routes import code_router
 from compute.app.controller import Controller, ControllerError
 from compute.app.folders import FolderError, browse
 from compute.app.resources import static_dir
+from compute.common.caching import REVALIDATE, RevalidatedStaticFiles
 
 SHELL_HOST = "127.0.0.1"
 SHELL_PORT = int(os.environ.get("COMPUTE_SHELL_PORT", "8766"))
@@ -97,7 +97,7 @@ def create_shell(controller: Optional[Controller] = None,
         path = static_dir() / "index.html"
         if not path.is_file():
             raise HTTPException(500, "UI files missing")
-        return FileResponse(path)
+        return FileResponse(path, headers=REVALIDATE)
 
     @app.get("/api/shell")
     def shell_info():
@@ -211,5 +211,5 @@ def create_shell(controller: Optional[Controller] = None,
     app.state.code = CodeManager(ctl.home, ctl.load_settings, http)
     app.include_router(code_router(app.state.code))
 
-    app.mount("/static", StaticFiles(directory=static_dir(), check_dir=False), name="static")
+    app.mount("/static", RevalidatedStaticFiles(directory=static_dir(), check_dir=False), name="static")
     return app
