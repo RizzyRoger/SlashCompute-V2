@@ -232,6 +232,22 @@ def test_session_budget(client):
     assert e.value.status == 402
 
 
+def test_spendable_is_the_most_reserve_would_accept(client):
+    token = register(client, "a@lan.test")
+    sv = services(client)
+    uid = client.get("/auth/me", headers=bearer(token)).json()["id"]
+    assert sv.accounting.spendable(uid) == pytest.approx(STARTER_FLOPS_DEFAULT)
+    s = client.post("/sessions", json={"model": "m.gguf", "max_flops": 1e14}, headers=bearer(token)).json()
+    assert sv.accounting.spendable(uid, s["id"]) == pytest.approx(1e14)   # the session budget is tighter
+    sv.accounting.reserve(uid, "inf-1", 4e13, session_id=s["id"])
+    assert sv.accounting.spendable(uid, s["id"]) == pytest.approx(6e13)   # open holds count against both
+    assert sv.accounting.spendable(uid) == pytest.approx(STARTER_FLOPS_DEFAULT - 4e13)
+    assert sv.accounting.spendable(uid, "no-such-session") == pytest.approx(STARTER_FLOPS_DEFAULT - 4e13)
+    sv.accounting.reserve(uid, "inf-2", sv.accounting.spendable(uid, s["id"]), session_id=s["id"])   # exactly fits
+    admin_uid = client.get("/auth/me", headers=bearer(admin_token(client))).json()["id"]
+    assert sv.accounting.spendable(admin_uid) == float("inf")
+
+
 def test_reservation_holds_then_charges_actual(client):
     token = register(client, "a@lan.test")
     sv = services(client)

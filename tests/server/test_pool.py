@@ -9,7 +9,10 @@ import pytest
 
 from inf_harness import FakeNode, chat, fast_settings, start_harness
 from compute.common.config import EngineConfig
+from compute.engine import flops as fl
+from compute.engine.coordinator import registry
 from compute.engine.coordinator.layers import synthetic_layout
+from compute.engine.coordinator.service import estimate_prompt_tokens
 from compute.server.app import create_app
 from compute.server.terms import terms_version
 from srv_helpers import ADMIN, ADMIN_PW
@@ -114,6 +117,22 @@ async def test_session_budget_caps_chat(pool):
         assert r.status_code == 200, r.text
         spent = (await c.get(f"/sessions/{big['id']}", headers=auth(tc))).json()["spent"]
         assert spent == pytest.approx(r.json()["network"]["flops"])
+
+
+async def test_reply_limit_shrinks_to_fit_the_session_budget(pool):
+    h = pool
+    _, th = account(h, "host@lan.test", credit=0)
+    _, tc = account(h, "chatter@lan.test")
+    await two_nodes(h, th, th)
+    body = {"model": QWEN, "messages": [{"role": "user", "content": "hi"}], "max_tokens": 4096}
+    svc = h.app.state.inference
+    mf, gen_weight = registry.model_flops(svc.model_or_404(QWEN)), svc.mgr.gen_weight_for(QWEN)
+    budget = fl.estimate_flops(mf, estimate_prompt_tokens(body), 1000, gen_weight)   # room for 1000 tokens
+    async with httpx.AsyncClient(base_url=h.url, timeout=30) as c:
+        s = (await c.post("/sessions", json={"model": QWEN, "max_flops": budget}, headers=auth(tc))).json()
+        r = await c.post("/v1/chat/completions", json={**body, "session_id": s["id"]}, headers=auth(tc))
+    assert r.status_code == 200, r.text   # used to be 402 budget_exhausted
+    assert r.json()["usage"]["completion_tokens"] == 1000   # the fake node writes exactly max_tokens tokens
 
 
 async def test_broke_user_gets_402(pool):
