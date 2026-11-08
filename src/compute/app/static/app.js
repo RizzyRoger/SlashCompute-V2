@@ -8,9 +8,6 @@ import { formatFlops } from './format.js'
 const $ = (id) => document.getElementById(id)
 const PFLOP = 1e15
 const STATUS_POLL_MS = 3000
-// Reasoning models think before they answer, so give a reply room for both. The server shortens it to what
-// your balance and session budget cover.
-const MAX_REPLY_TOKENS = 4096
 const LIVE_POLL_MS = 2000
 
 const state = {
@@ -493,7 +490,9 @@ const sendMessage = async (event) => {
   form.elements.prompt.value = ''
 
   const reply = { text: '', thinking: '', view: chatEntry('Assistant', '') }
-  const body = { model: model.id, messages: state.messages, max_tokens: MAX_REPLY_TOKENS, stream: true }
+  // No reply limit: reasoning models think before they answer. The server lets a reply use the rest of its
+  // context window, shortened to what your balance and session budget cover. Stop ends it early.
+  const body = { model: model.id, messages: state.messages, stream: true }
   if (state.sessionId) body.session_id = state.sessionId
   state.abort = new AbortController()
   setSending(true)
