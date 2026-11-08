@@ -61,9 +61,9 @@ Rules:
 
 ### Chat (OpenAI-compatible, mounted by the engine)
 - `GET /v1/models` → `{data: [{id, arch, moe, size_gb, heads, vision}]}`
-- `POST /v1/chat/completions`, body `{model, messages, max_tokens, stream: true, session_id?}`
+- `POST /v1/chat/completions`, body `{model, messages, max_tokens?, stream: true, session_id?}`
   - `messages[].content` may be a string, or a list of OpenAI content parts (`{"type":"text"}`, `{"type":"image_url","image_url":{"url":"data:image/png;base64,..."}}`). Images only work on `vision: true` models.
-  - `max_tokens` (default 256) is the most the reply may generate, and the server reserves FLOPs for all of it. When your balance or the session's `max_flops` can't cover that, the server shortens `max_tokens` to the largest value they can cover, but not below 256. The desktop app asks for 4096, so reasoning models have room to think and then answer.
+  - `max_tokens` is the most the reply may generate, and the server reserves FLOPs for all of it. Leave it out for no limit: the reply may then use the rest of its context window, the smallest context (4096, doubling) that leaves it at least 1024 tokens. That's about 4,000 tokens for a new chat. When your balance or the session's `max_flops` can't cover the limit, the server shortens it to the largest value they can cover, but not below 256. The desktop app sends no `max_tokens`, so reasoning models can think and then answer; its Stop button ends a reply early.
   - Errors before streaming:
     - 402 `insufficient FLOPs` (can't cover even a 256-token reply)
     - 402 `budget_exhausted` (the session's `max_flops` can't cover even a 256-token reply)

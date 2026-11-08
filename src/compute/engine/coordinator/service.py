@@ -66,12 +66,23 @@ def fit_max_tokens(cost: Callable[[int], float], wanted: int, spendable: float) 
     return fits
 
 
+CTX_MARGIN_TOKENS = 64      # slack between the prompt estimate + reply and the end of the context
+REPLY_ROOM_TOKENS = 1024    # with no max_tokens, the context grows until the reply has at least this much room
+
+
 def ctx_for(body: dict, s: InferenceSettings) -> int:
-    need = estimate_prompt_tokens(body) + int(body.get("max_tokens") or 256) + 64
+    need = estimate_prompt_tokens(body) + int(body.get("max_tokens") or 256) + CTX_MARGIN_TOKENS
     ctx = s.DEFAULT_CTX
     while ctx < need:
         ctx *= 2
     return ctx
+
+
+def fill_context(body: dict, s: InferenceSettings) -> int:
+    """The reply limit for a request without ``max_tokens``: the rest of the smallest context that leaves the
+    reply at least ``REPLY_ROOM_TOKENS``. The reply runs until the model stops, the context is full or the
+    budget runs out, and the context (and its memory) is no bigger than it has to be."""
+    return ctx_for({**body, "max_tokens": REPLY_ROOM_TOKENS}, s) - estimate_prompt_tokens(body) - CTX_MARGIN_TOKENS
 
 
 def hash_token(token: str) -> str:
@@ -585,6 +596,8 @@ def make_v1_router(svc: InferenceService) -> APIRouter:
         except AccountingError as e:
             raise HTTPException(e.status, str(e)) from e
         row = svc.model_or_404(body.get("model", ""))
+        if not body.get("max_tokens"):   # no limit asked: the reply may fill its context
+            body["max_tokens"] = fill_context(body, s)
         stream = bool(body.get("stream"))
         session_id = body.get("session_id") or None
         engine_body = {k: v for k, v in body.items()

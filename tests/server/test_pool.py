@@ -12,7 +12,7 @@ from compute.common.config import EngineConfig
 from compute.engine import flops as fl
 from compute.engine.coordinator import registry
 from compute.engine.coordinator.layers import synthetic_layout
-from compute.engine.coordinator.service import estimate_prompt_tokens
+from compute.engine.coordinator.service import estimate_prompt_tokens, fill_context
 from compute.server.app import create_app
 from compute.server.terms import terms_version
 from srv_helpers import ADMIN, ADMIN_PW
@@ -133,6 +133,25 @@ async def test_reply_limit_shrinks_to_fit_the_session_budget(pool):
         r = await c.post("/v1/chat/completions", json={**body, "session_id": s["id"]}, headers=auth(tc))
     assert r.status_code == 200, r.text   # used to be 402 budget_exhausted
     assert r.json()["usage"]["completion_tokens"] == 1000   # the fake node writes exactly max_tokens tokens
+
+
+async def test_no_reply_limit_fills_the_context_or_the_budget(pool):
+    h = pool
+    _, th = account(h, "host@lan.test", credit=0)
+    _, ta = admin(h)
+    await two_nodes(h, th, th)
+    body = {"model": QWEN, "messages": [{"role": "user", "content": "hi"}]}   # no max_tokens
+    svc = h.app.state.inference
+    mf, gen_weight = registry.model_flops(svc.model_or_404(QWEN)), svc.mgr.gen_weight_for(QWEN)
+    budget = fl.estimate_flops(mf, estimate_prompt_tokens(body), 1000, gen_weight)   # room for 1000 tokens
+    async with httpx.AsyncClient(base_url=h.url, timeout=60) as c:
+        r = await c.post("/v1/chat/completions", json=body, headers=auth(ta))   # the admin: no budget
+        assert r.status_code == 200, r.text
+        assert r.json()["usage"]["completion_tokens"] == fill_context(body, svc.s)   # the rest of the context
+        s = (await c.post("/sessions", json={"model": QWEN, "max_flops": budget}, headers=auth(ta))).json()
+        r = await c.post("/v1/chat/completions", json={**body, "session_id": s["id"]}, headers=auth(ta))
+        assert r.status_code == 200, r.text
+        assert r.json()["usage"]["completion_tokens"] == 1000   # what the session can pay for
 
 
 async def test_broke_user_gets_402(pool):
