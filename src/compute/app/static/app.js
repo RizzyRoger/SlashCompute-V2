@@ -21,6 +21,7 @@ const state = {
   queueId: null,
   abort: null,
   loadedUrl: null,   // the server the account, models and leaderboard were last loaded from
+  nodeRunning: false,
 }
 
 // The message line. `error` marks a failure so the stylesheet can tell it apart from good news.
@@ -264,12 +265,18 @@ const modelsDirItem = (dir) => {
   remove.addEventListener('click', guarded(async () => {
     await saveSettings({ models_dirs: state.settings.models_dirs.filter((d) => d !== dir) })
     renderSettings()
+    folderSaved(`Removed ${dir}.`)
   }))
   li.append(remove)
   return li
 }
 
+// A node scans its model folders when it starts: the shell restarts a running one on its next poll.
+const folderSaved = (text) =>
+  say(state.nodeRunning ? `${text} Your node restarts with the new folders in a few seconds.` : text)
+
 const renderNode = (node) => {
+  state.nodeRunning = node.running
   const detail = node.status.state || node.status.status || ''
   $('node-state').textContent = node.running ? `running (pid ${node.pid}) ${detail}` : 'stopped'
   $('node-start').disabled = node.running
@@ -282,7 +289,7 @@ const addModelsDir = async () => {
   if (state.settings.models_dirs.includes(dir)) return say(`${dir} is already a model folder.`)
   await saveSettings({ models_dirs: [...state.settings.models_dirs, dir] })
   renderSettings()
-  say(`Added ${dir}.`)
+  folderSaved(`Added ${dir}.`)
 }
 
 const saveMemory = async (event) => {
@@ -571,6 +578,8 @@ const showSection = () => {
     const on = link.getAttribute('href') === `#${id}`
     link.setAttribute('aria-current', on ? 'page' : 'false')
   }
+  // The pool's models change as nodes join, leave or add folders: show the current list.
+  if ((id === 'chat' || id === 'code') && state.loadedUrl) loadModels().catch(() => {})
 }
 
 // ----------------------------------------------------------------- start

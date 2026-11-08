@@ -108,6 +108,11 @@ def child_env(extra: dict[str, str]) -> dict[str, str]:
     return env
 
 
+def flag_values(argv: list[str], flag: str) -> list[str]:
+    """Every value given for ``flag`` in an argv, in order."""
+    return [value for key, value in zip(argv, argv[1:]) if key == flag]
+
+
 def pid_alive(pid: Optional[int]) -> bool:
     if not pid:
         return False
@@ -402,16 +407,19 @@ class Controller:
             raise ControllerError(f"Could not stop the node: {e}") from e
         return self.status()
 
-    def node_url(self) -> Optional[str]:
-        """The server address the running node was started with (its ``--url``), if it can be read."""
+    def node_cmdline(self) -> Optional[list[str]]:
+        """The running node's command line, if it can be read."""
         pid = self.node_pid()
         if pid is None:
             return None
         try:
-            argv = psutil.Process(pid).cmdline()
+            return psutil.Process(pid).cmdline()
         except psutil.Error:
             return None
-        return next((v for k, v in zip(argv, argv[1:]) if k == "--url"), None)
+
+    def node_url(self) -> Optional[str]:
+        """The server address the running node was started with (its ``--url``), if it can be read."""
+        return next(iter(flag_values(self.node_cmdline() or [], "--url")), None)
 
     def node_status(self) -> dict:
         pid = self.node_pid()
@@ -434,12 +442,13 @@ class Controller:
 
     def follow_pool(self) -> Optional[str]:
         """Called on every status poll: join this network's pool (or follow it to a new address), and keep
-        the node contributing to the pool we're on. Returns the new server URL when it changed."""
+        the node contributing to the pool we're on with the current model folders. Returns the new server
+        URL when it changed."""
         if not self._follow_lock.acquire(blocking=False):
             return None   # another poll is already on it
         try:
             changed = self._join_lan_pool()
-            self._keep_node_on_pool()
+            self._keep_node_current()
             return changed
         finally:
             self._follow_lock.release()
@@ -453,17 +462,28 @@ class Controller:
         self.update_settings({"server_url": pool.url})
         return pool.url
 
-    def _keep_node_on_pool(self) -> None:
-        """A node started for another address drains, then starts again on the current pool. ``node stop``
-        only asks it to leave, so the restart happens on a later poll, once it has exited."""
+    def _keep_node_current(self) -> None:
+        """A node started for another address, or with other model folders, drains, then starts again with
+        the current settings. ``node stop`` only asks it to leave, so the restart happens on a later poll,
+        once it has exited."""
         if self._node_moving:
             if self.node_pid() is None:
                 self._node_moving = False
                 self._try_node(self.start_node, "start again")
             return
-        node_url, current = self.node_url(), self.load_settings().server_url
-        if node_url and current and node_url != current and self._try_node(self.stop_node, "stop"):
+        if self._node_outdated() and self._try_node(self.stop_node, "stop"):
             self._node_moving = True
+
+    def _node_outdated(self) -> bool:
+        """The running node was started for another pool, or with other model folders. A node only scans its
+        folders when it starts, so adding or removing one changes nothing until it restarts."""
+        argv = self.node_cmdline()
+        if argv is None:
+            return False
+        settings = self.load_settings()
+        urls = flag_values(argv, "--url")
+        moved = bool(urls and settings.server_url and urls[0] != settings.server_url)
+        return moved or sorted(flag_values(argv, "--models-dir")) != sorted(settings.models_dirs)
 
     def _try_node(self, action: Callable[[], Any], what: str) -> bool:
         try:
