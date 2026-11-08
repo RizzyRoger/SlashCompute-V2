@@ -246,13 +246,17 @@ def test_follow_pool_keeps_the_address_when_nothing_is_advertised(make_controlle
     assert c.load_settings().server_url == "http://10.0.0.2:8765"
 
 
-def node_moving_controller(make_controller, monkeypatch, node_url: str):
+def node_moving_controller(make_controller, monkeypatch, node_url: str, node_dirs: tuple[str, ...] = ()):
+    """A controller whose running node was started with ``node_url`` and ``node_dirs``."""
     popen, run = Recorder(), Recorder()
     c = make_controller(popen=popen, run=run, routes={"/auth/me": ok_me()}, lan=[EARLY])
-    c.update_settings({"server_url": node_url, "session_token": "tok", "contribute": True})
+    c.update_settings({"server_url": node_url, "session_token": "tok", "contribute": True,
+                       "models_dirs": list(node_dirs)})
     alive = {"pid": 999}
+    argv = ["compute", "node", "start", "--url", node_url, "--head",
+            *(arg for d in node_dirs for arg in ("--models-dir", d))]
     monkeypatch.setattr(c, "node_pid", lambda: alive["pid"])
-    monkeypatch.setattr(c, "node_url", lambda: node_url if alive["pid"] else None)
+    monkeypatch.setattr(c, "node_cmdline", lambda: argv if alive["pid"] else None)
     return c, popen, run, alive
 
 
@@ -272,6 +276,26 @@ def test_running_node_drains_then_restarts_on_the_new_pool(make_controller, monk
 
 def test_node_already_on_the_pool_is_left_alone(make_controller, monkeypatch):
     c, popen, run, _ = node_moving_controller(make_controller, monkeypatch, EARLY.url)
+    c.follow_pool()
+    assert run.calls == [] and popen.calls == []
+
+
+def test_running_node_restarts_with_the_model_folders_the_user_changed(make_controller, monkeypatch):
+    c, popen, run, alive = node_moving_controller(make_controller, monkeypatch, EARLY.url, ("/m/big",))
+    c.update_settings({"models_dirs": ["/m/big", "/m/small"]})   # Add folder... while contributing
+    c.follow_pool()
+    assert run.calls and "stop" in run.calls[0]["argv"]   # drains: a node only scans its folders at start
+    assert popen.calls == []
+    alive["pid"] = None
+    c.follow_pool()
+    argv = popen.calls[0]["argv"]
+    assert [v for k, v in zip(argv, argv[1:]) if k == "--models-dir"] == ["/m/big", "/m/small"]
+    assert c.load_settings().contribute is True
+
+
+def test_node_with_the_same_model_folders_in_another_order_is_left_alone(make_controller, monkeypatch):
+    c, popen, run, _ = node_moving_controller(make_controller, monkeypatch, EARLY.url, ("/m/a", "/m/b"))
+    c.update_settings({"models_dirs": ["/m/b", "/m/a"]})
     c.follow_pool()
     assert run.calls == [] and popen.calls == []
 
