@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import AsyncIterator, Callable, Optional, Protocol
 
 from fastapi import Request
@@ -29,6 +30,11 @@ class Accounting(Protocol):
         (402 with message ``budget_exhausted`` when the session cannot cover it)."""
         ...
 
+    def spendable(self, user_id: str, session_id: Optional[str] = None) -> float:
+        """The most ``reserve`` would accept for this user (and chat session) right now; ``math.inf`` for no cap.
+        Used to shorten a reply's ``max_tokens`` to what the user can pay for instead of refusing it."""
+        ...
+
     def record(self, account_id: str, per_node: dict[str, float], tokens: int, wall_s: float) -> None:
         """A request finished: credit each hosting node, log usage, consume from the reservation."""
         ...
@@ -53,6 +59,9 @@ class NullAccounting:
 
     def reserve(self, user_id: str, account_id: str, flops: float, session_id: Optional[str] = None) -> None:
         return None
+
+    def spendable(self, user_id: str, session_id: Optional[str] = None) -> float:
+        return math.inf
 
     def record(self, account_id: str, per_node: dict[str, float], tokens: int, wall_s: float) -> None:
         for node_id, flops in per_node.items():

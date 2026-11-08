@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Optional
 
 from fastapi import Request
@@ -47,6 +48,12 @@ class ServerAccounting:
             self.ledger.reserve(user_id, account_id, flops, unlimited=is_admin(user), session_id=session_id)
         except LedgerError as e:
             raise AccountingError(str(e), e.status) from e
+
+    def spendable(self, user_id: str, session_id: Optional[str] = None) -> float:
+        user = self.auth.get(user_id)
+        if user is None:
+            return math.inf   # reserve() refuses it with the real reason
+        return self.ledger.spendable(user_id, unlimited=is_admin(user), session_id=session_id)
 
     def record(self, account_id: str, per_node: dict[str, float], tokens: int, wall_s: float) -> None:
         self.ledger.record(account_id, per_node)

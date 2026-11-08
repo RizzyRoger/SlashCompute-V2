@@ -50,6 +50,22 @@ def estimate_prompt_tokens(body: dict) -> int:
     return max(8, len(json.dumps(body.get("messages", ""))) // 4)
 
 
+MIN_REPLY_TOKENS = 256   # a reply limit is never fitted below this; a request that can't afford it is refused
+
+
+def fit_max_tokens(cost: Callable[[int], float], wanted: int, spendable: float) -> int:
+    """The reply limit to run with: ``wanted`` when its estimated cost fits what the user can spend, else the
+    largest limit that fits. ``cost`` rises with the limit. Never fitted below ``MIN_REPLY_TOKENS``: when even
+    that doesn't fit, ``wanted`` stands and the reservation refuses the request with its usual message."""
+    if wanted <= MIN_REPLY_TOKENS or cost(wanted) <= spendable or cost(MIN_REPLY_TOKENS) > spendable:
+        return wanted
+    fits, too_big = MIN_REPLY_TOKENS, wanted
+    while too_big - fits > 1:
+        mid = (fits + too_big) // 2
+        fits, too_big = (mid, too_big) if cost(mid) <= spendable else (fits, mid)
+    return fits
+
+
 def ctx_for(body: dict, s: InferenceSettings) -> int:
     need = estimate_prompt_tokens(body) + int(body.get("max_tokens") or 256) + 64
     ctx = s.DEFAULT_CTX
@@ -576,8 +592,15 @@ def make_v1_router(svc: InferenceService) -> APIRouter:
         account_id = "inf-" + uuid.uuid4().hex[:12]
         reserved = False
         if user_id:
-            est = fl.estimate_flops(registry.model_flops(row), estimate_prompt_tokens(body),
-                                    int(body.get("max_tokens") or 256), mgr.gen_weight_for(row["id"]))
+            mf, prompt_n = registry.model_flops(row), estimate_prompt_tokens(body)
+            gen_weight = mgr.gen_weight_for(row["id"])
+            cost = lambda n: fl.estimate_flops(mf, prompt_n, n, gen_weight)  # noqa: E731
+            wanted = int(body.get("max_tokens") or 256)
+            fitted = fit_max_tokens(cost, wanted, svc.accounting.spendable(user_id, session_id))
+            if fitted < wanted:   # shorten the reply to what the balance and session budget cover
+                log.info("max_tokens %d -> %d for %s: that is what the user can spend", wanted, fitted, user_id)
+                body["max_tokens"] = engine_body["max_tokens"] = fitted
+            est = cost(fitted)
             try:
                 svc.accounting.reserve(user_id, account_id, est, session_id=session_id)
             except AccountingError as e:

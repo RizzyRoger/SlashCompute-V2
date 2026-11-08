@@ -70,6 +70,16 @@ def _holds(s: Session, *where) -> float:
     return sum(max(r.held - r.spent, 0.0) for r in rows)
 
 
+def _balance_left(s: Session, user_id: str) -> float:
+    """The user's balance minus what open requests hold."""
+    return _total(s, Txn.user_id == user_id) - _holds(s, Reservation.user_id == user_id)
+
+
+def _session_left(s: Session, cs: ChatSession) -> float:
+    """A chat session's budget minus what it spent and what its open requests hold."""
+    return cs.max_flops - cs.spent - _holds(s, Reservation.session_id == cs.id)
+
+
 class Ledger:
     def __init__(self, db: Database) -> None:
         self.db = db
@@ -139,6 +149,17 @@ class Ledger:
 
     # ------------------------------------------------------------ chat requests
 
+    def spendable(self, user_id: str, *, unlimited: bool, session_id: Optional[str] = None) -> float:
+        """The most one new request could reserve now: the balance not held by open requests (no cap when
+        ``unlimited``), and with a chat session, what is left of its budget. ``reserve`` refuses more. An
+        unknown session adds no cap here; ``reserve`` reports it."""
+        with self.db.session() as s:
+            left = math.inf if unlimited else _balance_left(s, user_id)
+            cs = s.get(ChatSession, session_id) if session_id else None
+            if cs is not None and cs.user_id == user_id:
+                left = min(left, _session_left(s, cs))
+            return left
+
     def reserve(self, user_id: str, account_id: str, flops: float, *, unlimited: bool,
                 session_id: Optional[str] = None) -> None:
         if not math.isfinite(flops) or flops <= 0:
@@ -148,12 +169,10 @@ class Ledger:
                 cs = s.get(ChatSession, session_id)
                 if cs is None or cs.user_id != user_id:
                     raise LedgerError("unknown chat session", 404)
-                if cs.max_flops - cs.spent - _holds(s, Reservation.session_id == session_id) < flops:
+                if _session_left(s, cs) < flops:
                     raise LedgerError("budget_exhausted", 402)
-            if not unlimited:
-                available = _total(s, Txn.user_id == user_id) - _holds(s, Reservation.user_id == user_id)
-                if available < flops:
-                    raise LedgerError("insufficient FLOPs", 402)
+            if not unlimited and _balance_left(s, user_id) < flops:
+                raise LedgerError("insufficient FLOPs", 402)
             s.add(Reservation(account_id=account_id, user_id=user_id, session_id=session_id, held=float(flops),
                               unlimited=unlimited))
             s.commit()
